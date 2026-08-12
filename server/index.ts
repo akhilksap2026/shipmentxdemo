@@ -1,10 +1,18 @@
 import express from 'express'
 import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { pool } from './db.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 app.use(cors())
 app.use(express.json())
+
+// ── Serve built frontend in production ────────────────────
+const distDir = path.resolve(__dirname, '../dist')
+app.use(express.static(distDir))
 
 // ── Carriers ──────────────────────────────────────────────
 app.get('/api/carriers', async (_, res) => {
@@ -360,5 +368,10 @@ app.patch('/api/lanes/:id', async (req, res) => {
 // ── Health ────────────────────────────────────────────────
 app.get('/api/health', (_, res) => res.json({ ok: true }))
 
-const PORT = 8000
+// ── Catch-all: serve index.html for client-side routing ───
+app.get('*', (_, res) => {
+  res.sendFile(path.join(distDir, 'index.html'))
+})
+
+const PORT = Number(process.env.PORT) || 8000
 app.listen(PORT, () => console.log(`YardOS API on :${PORT}`))
