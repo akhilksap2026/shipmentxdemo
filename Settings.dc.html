@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/modernist-5648be78-77d7-4015-8810-603a33e645f0/styles.css">
+  <script src="_ds/modernist-5648be78-77d7-4015-8810-603a33e645f0/_ds_bundle.js"></script>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto;font-family:var(--font-body);color:var(--color-text);background:var(--color-bg)">
+  <div style="display:flex;align-items:center;gap:18px;padding:14px 20px 12px;border-bottom:2px solid var(--color-divider);flex:none">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:var(--font-heading);font-weight:800;font-size:19px;letter-spacing:-0.015em">Settings</span>
+      <span style="font-size:11px;color:var(--color-neutral-700)">Objective weights, master data, adapters, roles, degraded mode — every operator-relevant switch in one place</span>
+    </div>
+    <div style="display:flex;margin-left:12px">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.onClick }}" style="font-size:11.5px;padding:7px 14px;border:1px solid var(--color-neutral-400);border-right:0;background:{{ t.bg }};color:{{ t.fg }};cursor:pointer;font-family:var(--font-body);font-weight:700">{{ t.label }}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left:auto;font-size:11px;color:var(--color-neutral-700)">Changes are audited · commit lands on the next generation</div>
+  </div>
+
+  <sc-if value="{{ isPlan }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:minmax(360px,1fr) clamp(280px,28vw,380px);flex:1 1 auto;min-height:300px;overflow:auto">
+      <div style="border-right:2px solid var(--color-divider);overflow:auto;padding:0 0 16px">
+        <div style="padding:12px 20px 4px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Retrieval priority factors</div>
+        <sc-for list="{{ factors }}" as="f" hint-placeholder-count="10">
+          <div style="padding:9px 20px;border-bottom:1px solid var(--color-neutral-300)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px">
+              <span style="font-weight:600">{{ f.k }}</span>
+              <span style="font-variant-numeric:tabular-nums;color:{{ f.color }}">W {{ f.w }}</span>
+            </div>
+            <input type="range" min="0" max="40" value="{{ f.w }}" onInput="{{ f.onInput }}" style="width:100%;margin-top:6px;accent-color:var(--color-accent)">
+            <div style="font-size:10.5px;color:var(--color-neutral-600)">{{ f.scoring }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="overflow:auto">
+        <div style="padding:12px 18px 4px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Stability parameters</div>
+        <sc-for list="{{ stability }}" as="p" hint-placeholder-count="6">
+          <div style="display:flex;justify-content:space-between;gap:12px;padding:7px 18px;border-bottom:1px solid var(--color-neutral-300);font-size:11.5px">
+            <span style="color:var(--color-neutral-700)">{{ p.k }}</span><span style="font-weight:600">{{ p.v }}</span>
+          </div>
+        </sc-for>
+        <div style="padding:14px 18px 4px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Impact preview</div>
+        <sc-for list="{{ sim }}" as="s" hint-placeholder-count="4">
+          <div style="padding:8px 18px;border-bottom:1px solid var(--color-neutral-300)">
+            <div style="font-size:11.5px;font-weight:600">{{ s.k }}</div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-top:3px;font-variant-numeric:tabular-nums">
+              <span style="color:var(--color-neutral-600)">current {{ s.current }}</span>
+              <span style="font-weight:700;color:{{ s.color }}">candidate {{ s.candidate }}</span>
+            </div>
+          </div>
+        </sc-for>
+        <div style="padding:14px 18px;font-size:12px;line-height:1.55;color:var(--color-neutral-800)">{{ tradeoff }}</div>
+        <div style="padding:0 18px 18px">
+          <button class="btn btn-primary" onClick="{{ onCommit }}" style="font-size:12px;padding:7px 14px">{{ commitLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isIntegrations }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1 1 auto;min-height:0;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <sc-for list="{{ cols }}" as="c" hint-placeholder-count="6">
+            <th style="text-align:left;padding:9px 12px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);border-bottom:2px solid var(--color-divider);position:sticky;top:0;background:var(--color-bg);z-index:1">{{ c }}</th>
+          </sc-for>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ adapters }}" as="a" hint-placeholder-count="9">
+            <tr style="border-bottom:1px solid var(--color-neutral-300);border-left:3px solid {{ a.mark }}">
+              <td style="padding:10px 12px 10px 20px;font-weight:600">{{ a.name }}<div style="font-size:11px;font-weight:400;color:var(--color-neutral-600)">{{ a.mechanism }}</div></td>
+              <td style="padding:10px 12px;font-weight:700;color:{{ a.color }};font-size:11px;letter-spacing:0.05em">{{ a.state }}</td>
+              <td style="padding:10px 12px;font-variant-numeric:tabular-nums">{{ a.lag }}</td>
+              <td style="padding:10px 12px;font-variant-numeric:tabular-nums;color:{{ a.dlqColor }}">{{ a.dlq }}</td>
+              <td style="padding:10px 12px;font-variant-numeric:tabular-nums">{{ a.recon }}</td>
+              <td style="padding:10px 20px 10px 12px;color:var(--color-neutral-700);line-height:1.35">{{ a.note }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      <div style="padding:16px 20px;display:flex;gap:10px">
+        <button class="btn btn-secondary" onClick="{{ onReplay }}" style="font-size:12px;padding:7px 12px">{{ replayLabel }}</button>
+        <button class="btn btn-ghost" onClick="{{ onDegraded }}" style="font-size:12px;padding:7px 12px">{{ degradedLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isData }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1 1 auto;min-height:0;overflow:auto;padding:16px 20px">
+      <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Master data</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px">
+        <sc-for list="{{ mdm }}" as="m" hint-placeholder-count="8">
+          <div style="border:1px solid var(--color-neutral-400);padding:9px 12px;min-width:158px">
+            <div style="font-size:12px;font-weight:600">{{ m.k }}</div>
+            <div style="font-size:11px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums">{{ m.v }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top:22px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Assumptions</div>
+      <sc-for list="{{ assumptions }}" as="a" hint-placeholder-count="3">
+        <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--color-neutral-300);font-size:11.5px">
+          <span>{{ a.k }}</span>
+          <div style="display:flex;gap:4px">
+            <sc-for list="{{ a.opts }}" as="o" hint-placeholder-count="2">
+              <button onClick="{{ o.onClick }}" style="font-size:10.5px;padding:5px 10px;border:1px solid var(--color-neutral-400);background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;font-family:var(--font-body);font-weight:600">{{ o.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isRoles }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1 1 auto;min-height:0;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;padding:9px 20px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);border-bottom:2px solid var(--color-divider)">PERSONA</th>
+          <th style="text-align:left;padding:9px 12px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);border-bottom:2px solid var(--color-divider)">SCREENS</th>
+          <th style="text-align:left;padding:9px 12px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);border-bottom:2px solid var(--color-divider)">USERS</th>
+          <th style="text-align:left;padding:9px 20px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);border-bottom:2px solid var(--color-divider)">NOTE</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ personas }}" as="p" hint-placeholder-count="3">
+            <tr style="border-bottom:1px solid var(--color-neutral-300)">
+              <td style="padding:11px 20px;font-weight:700">{{ p.name }}</td>
+              <td style="padding:11px 12px">{{ p.screens }}</td>
+              <td style="padding:11px 12px;font-variant-numeric:tabular-nums">{{ p.users }}</td>
+              <td style="padding:11px 20px;color:var(--color-neutral-700);line-height:1.4">{{ p.note }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      <div style="padding:16px 20px;font-size:12px;line-height:1.55;color:var(--color-neutral-800);max-width:80ch">Three personas replaces the nine-role matrix from PRD v2.0. Every access is written to the audit log. Broker and finance views arrive after Phase 0 — they were external and reporting audiences that don't reshape day-of operations.</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const FACTORS = [
+  { k: "Detention urgency", w: 30, scoring: "clamp(0,100,(1 − hoursToLFD/72)×100); breached ⇒ 100" },
+  { k: "Detention cost gradient", w: 10, scoring: "weighted by the tariff tier the container is entering" },
+  { k: "Hazmat handling", w: 25, scoring: "outbound-due hazmat ⇒ 100; inbound hazmat ⇒ 80" },
+  { k: "Customer / order priority", w: 15, scoring: "P1→100, P2→70, P3→40, P4→10" },
+  { k: "Dig-out cost (penalty)", w: 12, scoring: "100 − (blocking × 33); top of stack ⇒ 100" },
+  { k: "Gate / appointment pressure", w: 10, scoring: "truck waiting ⇒ 100; appt <60 min ⇒ 80" },
+  { k: "Customs channel", w: 8, scoring: "cleared ⇒ 100; awaiting inspection ⇒ 0" },
+  { k: "Empty-return window", w: 8, scoring: "window closing today ⇒ 100; closed ⇒ escalate" },
+  { k: "Damage / quarantine", w: 5, scoring: "damaged and outbound-due ⇒ 60, routed to inspection" },
+  { k: "Dwell time", w: 3, scoring: "min(100, daysInYard × 10)" }
+];
+
+const ADAPTERS = [
+  { name: "SAP — orders & deliveries", mechanism: "IDoc DELVRY / ORDERS", state: "HEALTHY", lag: "4 s", dlq: 0, recon: "0 drift", note: "Idempotent by delivery number; replay tested" },
+  { name: "SAP — goods receipt", mechanism: "OData, D-03 open", state: "PENDING", lag: "—", dlq: 0, recon: "n/a", note: "Blocked on D-03: does YOS own the receipt posting?" },
+  { name: "Terminal 4 BACTSSA", mechanism: "REST API", state: "HEALTHY", lag: "31 s", dlq: 0, recon: "0 drift", note: "Turnos and gate-out confirmations" },
+  { name: "Exolgan Dock Sud", mechanism: "Portal scrape + manual", state: "DEGRADED", lag: "18 min", dlq: 3, recon: "2 drift", note: "No API — manual entry is a supported path, not a failure" },
+  { name: "Carrier EDI", mechanism: "COPARN / CODECO / COARRI", state: "PHASE 2", lag: "—", dlq: 0, recon: "n/a", note: "Manual master fallback for free-time terms until then" },
+  { name: "ARCA / broker", mechanism: "Broker system feed", state: "HEALTHY", lag: "2 min", dlq: 0, recon: "0 drift", note: "Channel, authorisation, libramiento" },
+  { name: "Telematics — driver ETA", mechanism: "Geofence webhook", state: "HEALTHY", lag: "9 s", dlq: 0, recon: "0 drift", note: "Replaces the static 90-minute assumption" },
+  { name: "Machine telemetry / RTLS", mechanism: "CAN + GPS", state: "PHASE 2", lag: "—", dlq: 0, recon: "n/a", note: "Learned travel matrix waits on this" },
+  { name: "Weather (wind)", mechanism: "Weather API", state: "HEALTHY", lag: "5 min", dlq: 0, recon: "n/a", note: "Feeds hard constraint C11" }
+];
+
+class Component extends DCLogic {
+  state = { tab: "plan", weights: FACTORS.map(f => f.w), committed: false, replayed: false, degraded: false, bonded: false, dropGo: true };
+  renderVals() {
+    const s = this.state;
+    const dirty = s.weights.some((w, i) => w !== FACTORS[i].w);
+    const color = st => st === "HEALTHY" ? "var(--color-neutral-800)" : st === "DEGRADED" ? "var(--color-accent-700)" : "var(--color-neutral-600)";
+    return {
+      tabs: [["plan", "Plan weights"], ["integrations", "Integrations"], ["data", "Master data"], ["roles", "Roles"]].map(([k, label]) => ({
+        label, bg: s.tab === k ? "var(--color-text)" : "transparent",
+        fg: s.tab === k ? "var(--color-bg)" : "var(--color-neutral-800)",
+        onClick: () => this.setState({ tab: k })
+      })),
+      isPlan: s.tab === "plan", isIntegrations: s.tab === "integrations", isData: s.tab === "data", isRoles: s.tab === "roles",
+      factors: FACTORS.map((f, i) => ({
+        k: f.k, w: s.weights[i], scoring: f.scoring,
+        color: s.weights[i] !== f.w ? "var(--color-accent-700)" : "var(--color-neutral-600)",
+        onInput: e => { const w = s.weights.slice(); w[i] = +e.target.value; this.setState({ weights: w, committed: false }); }
+      })),
+      stability: [
+        { k: "Freeze window", v: "20 min" },
+        { k: "Minimum improvement", v: "8 machine-min" },
+        { k: "Reassign cap", v: "2 / operator / hour" },
+        { k: "Event debounce", v: "90 s" },
+        { k: "Replan cooldown", v: "10 min" },
+        { k: "Zone ceiling", v: "85%" }
+      ],
+      sim: [
+        { k: "Detention exposure 72 h", current: "$8.4k", candidate: dirty ? "$6.1k" : "$8.4k", color: dirty ? "var(--color-text)" : "var(--color-text)" },
+        { k: "Predicted rehandles / move", current: "0.31", candidate: dirty ? "0.36" : "0.31", color: dirty ? "var(--color-accent-700)" : "var(--color-text)" },
+        { k: "Turn P50", current: "13.4′", candidate: dirty ? "13.9′" : "13.4′", color: dirty ? "var(--color-accent-700)" : "var(--color-text)" },
+        { k: "Moves resequenced", current: "—", candidate: dirty ? "34 of 96" : "—", color: "var(--color-text)" }
+      ],
+      tradeoff: dirty
+        ? "Raising detention urgency buys $2.3k of exposure for 42 extra machine-minutes and 0.05 rehandles per move. Worth it while the tariff tier is escalating, not once the container is inside free time."
+        : "Move a weight to see the trade-off priced in machine-minutes against detention exposure. Nothing is applied until you commit, and the commit lands on the next generation.",
+      onCommit: () => this.setState({ committed: true }),
+      commitLabel: s.committed ? "Committed · snapshot #b70e12" : dirty ? "Commit to next generation" : "No changes to commit",
+      cols: ["ADAPTER", "STATE", "LAG", "DLQ", "RECONCILE", "NOTE"],
+      adapters: ADAPTERS.map(a => ({
+        ...a,
+        dlq: s.replayed && a.name === "Exolgan Dock Sud" ? 0 : a.dlq,
+        color: color(a.state),
+        dlqColor: a.dlq && !s.replayed ? "var(--color-accent-700)" : "var(--color-text)",
+        mark: a.state === "DEGRADED" ? "var(--color-accent-400)" : "transparent"
+      })),
+      onReplay: () => this.setState({ replayed: true }),
+      replayLabel: s.replayed ? "3 messages replayed · DLQ empty" : "Replay dead-letter queue",
+      onDegraded: () => this.setState({ degraded: !s.degraded }),
+      degradedLabel: s.degraded ? "Degraded mode armed" : "Enter degraded mode",
+      mdm: [
+        { k: "Carriers", v: "5 · tariffs current" }, { k: "Consignees", v: "7 active" },
+        { k: "Depots", v: "4 · windows set" }, { k: "Equipment", v: "5 · capacity charts loaded" },
+        { k: "Operators", v: "5 · certs verified" }, { k: "Zones & slots", v: "7 zones · 1,124 slots" },
+        { k: "Holidays", v: "AR 2026 · 1 moved" }, { k: "Reason codes", v: "22 controlled" }
+      ],
+      assumptions: [
+        { k: "Bonded (D-02)", opts: [{ v: false, label: "No" }, { v: true, label: "Yes" }].map(o => ({ label: o.label, bg: s.bonded === o.v ? "var(--color-text)" : "transparent", fg: s.bonded === o.v ? "var(--color-bg)" : "var(--color-text)", onClick: () => this.setState({ bonded: o.v }) })) },
+        { k: "Inbound mode (D-01)", opts: [{ v: true, label: "Drop-and-go" }, { v: false, label: "Live unload" }].map(o => ({ label: o.label, bg: s.dropGo === o.v ? "var(--color-text)" : "transparent", fg: s.dropGo === o.v ? "var(--color-bg)" : "var(--color-text)", onClick: () => this.setState({ dropGo: o.v }) })) },
+        { k: "Degraded mode drill", opts: [{ v: false, label: "Idle" }, { v: true, label: "Armed" }].map(o => ({ label: o.label, bg: s.degraded === o.v ? "var(--color-text)" : "transparent", fg: s.degraded === o.v ? "var(--color-bg)" : "var(--color-text)", onClick: () => this.setState({ degraded: o.v }) })) }
+      ],
+      personas: [
+        { name: "Yard Manager", screens: "Yard · Plan · Tower · Gate · Operator · Settings", users: 6, note: "Owns the plan and the exceptions; can override with a reason code" },
+        { name: "Gate & Yard Ops", screens: "Yard · Gate", users: 4, note: "Gate clerks and yard operators — front line, no config authority" },
+        { name: "Operator", screens: "Operator", users: 11, note: "Device-bound; single-instruction view; supervisor-approved exceptions" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

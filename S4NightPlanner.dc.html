@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/modernist-5648be78-77d7-4015-8810-603a33e645f0/styles.css">
+  <script src="_ds/modernist-5648be78-77d7-4015-8810-603a33e645f0/_ds_bundle.js"></script>
+</helmet>
+<div style="position:relative;display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto;font-family:var(--font-body);color:var(--color-text);background:var(--color-bg)">
+
+  <div style="display:flex;align-items:center;gap:18px;padding:14px 20px 12px;border-bottom:2px solid var(--color-divider);flex:none">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-family:var(--font-heading);font-weight:800;font-size:19px;letter-spacing:-0.015em">Night-before plan</span>
+        <span style="font-size:10px;font-weight:700;letter-spacing:0.09em;padding:3px 7px;background:{{ statusBg }};color:{{ statusFg }}">{{ statusLabel }}</span>
+      </div>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--color-neutral-700)">
+        <span>P-2026-08-11</span><span>Generated 22:14</span><span>Engine 41.8 s</span><span>Snapshot #a41f9c</span><span>Horizon 06:00–14:00</span>
+      </div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn btn-ghost" style="font-size:12px;padding:7px 12px" onClick="{{ onConfig }}">Configure</button>
+      <button class="btn btn-secondary" style="font-size:12px;padding:7px 12px" onClick="{{ onRegenerate }}">Regenerate</button>
+      <button class="btn btn-primary" style="font-size:12px;padding:7px 14px" onClick="{{ onPublish }}">{{ publishLabel }}</button>
+    </div>
+  </div>
+
+  <div style="padding:11px 20px;background:var(--color-neutral-200);border-bottom:1px solid var(--color-neutral-300);font-size:12.5px;line-height:1.55;color:var(--color-neutral-800);max-width:96ch">
+    Plan, filter, and sequence today's 96 moves across 3 reach stackers and 1 empty handler, ranked by free-time urgency, detention cost, hazmat handling, order priority, dig-out cost, gate pressure, customs channel, empty-return windows, damage state and dwell — with every placement carrying a one-sentence reason.
+  </div>
+
+  <sc-if value="{{ configOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:5;background:rgba(32,30,29,0.4)" onClick="{{ onConfig }}"></div>
+  </sc-if>
+  <sc-if value="{{ configOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;top:0;right:0;bottom:0;width:380px;z-index:6;background:var(--color-bg);border-left:2px solid var(--color-divider);overflow:auto;padding:16px 18px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div style="font-family:var(--font-heading);font-weight:800;font-size:16px">Configure this plan</div>
+        <button onClick="{{ onConfig }}" style="border:0;background:transparent;font-size:12px;cursor:pointer;color:var(--color-neutral-700)">Close ✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--color-neutral-700);line-height:1.55;margin-top:6px">Weight changes take effect on the next generation, never against a published plan.</div>
+      <div style="margin-top:14px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Objective weights</div>
+      <sc-for list="{{ configWeights }}" as="w" hint-placeholder-count="4">
+        <div style="padding:8px 0;border-bottom:1px solid var(--color-neutral-300)">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px"><span>{{ w.k }}</span><span style="font-weight:700;font-variant-numeric:tabular-nums">{{ w.v }}</span></div>
+          <input type="range" min="0" max="40" value="{{ w.raw }}" onInput="{{ w.onInput }}" style="width:100%;margin-top:5px;accent-color:var(--color-accent)">
+        </div>
+      </sc-for>
+      <div style="margin-top:14px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Stability</div>
+      <sc-for list="{{ configStability }}" as="p" hint-placeholder-count="4">
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--color-neutral-300);font-size:11.5px">
+          <span style="color:var(--color-neutral-700)">{{ p.k }}</span><span style="font-weight:600">{{ p.v }}</span>
+        </div>
+      </sc-for>
+      <button class="btn btn-primary" onClick="{{ onConfig }}" style="font-size:12px;padding:7px 12px;margin-top:16px;width:100%">Apply on next regenerate</button>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid var(--color-divider);flex:none;background:var(--color-bg)">
+    <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="6">
+      <div style="flex:1 1 150px;padding:11px 20px;border-right:1px solid var(--color-neutral-300);display:flex;flex-direction:column;gap:3px">
+        <span style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">{{ m.k }}</span>
+        <div style="display:flex;align-items:baseline;gap:7px">
+          <span style="font-family:var(--font-heading);font-weight:800;font-size:22px;line-height:1;letter-spacing:-0.02em;color:{{ m.color }}">{{ m.v }}</span>
+          <span style="font-size:11px;color:var(--color-neutral-600)">{{ m.sub }}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display:grid;grid-template-columns:clamp(170px,15vw,220px) minmax(340px,1fr) clamp(250px,24vw,340px);flex:1 1 auto;min-height:320px;overflow:auto">
+
+    <div style="border-right:2px solid var(--color-divider);display:flex;flex-direction:column;min-height:0;overflow:auto">
+      <div style="padding:11px 16px 8px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Assumptions</div>
+      <sc-for list="{{ assumptions }}" as="a" hint-placeholder-count="8">
+        <div style="padding:0 16px 10px">
+          <div style="font-size:12px;font-weight:600;line-height:1.25">{{ a.v }}</div>
+          <div style="font-size:10.5px;color:var(--color-neutral-600);line-height:1.3">{{ a.k }} · <span style="color:{{ a.noteColor }}">{{ a.note }}</span></div>
+        </div>
+      </sc-for>
+      <div style="height:2px;background:var(--color-divider);margin:2px 0 0"></div>
+      <div style="padding:11px 16px 8px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Objective weights</div>
+      <sc-for list="{{ weights }}" as="w" hint-placeholder-count="4">
+        <div style="padding:0 16px 10px;display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px"><span>{{ w.k }}</span><span style="font-weight:700;font-variant-numeric:tabular-nums">{{ w.v }}</span></div>
+          <div style="height:2px;background:var(--color-neutral-300)"><div style="height:2px;background:var(--color-text);width:{{ w.pct }}"></div></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--color-neutral-300);flex:none">
+        <input class="input" placeholder="Filter container, slot, operator…" value="{{ q }}" onInput="{{ onQuery }}" style="font-size:12px;padding:5px 9px;height:30px;width:230px">
+        <div style="display:flex">
+          <sc-for list="{{ typeFilters }}" as="f" hint-placeholder-count="4">
+            <button onClick="{{ f.onClick }}" style="font-size:10.5px;letter-spacing:0.04em;padding:6px 10px;border:1px solid var(--color-neutral-400);border-right:0;background:{{ f.bg }};color:{{ f.fg }};cursor:pointer;font-family:var(--font-body);font-weight:600">{{ f.label }}</button>
+          </sc-for>
+        </div>
+        <span style="margin-left:auto;font-size:11px;color:var(--color-neutral-600)">{{ rowCountLabel }}</span>
+      </div>
+      <div style="flex:1 1 auto;min-height:0;overflow:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:7px 10px 7px 16px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);position:sticky;top:0;background:var(--color-bg);border-bottom:2px solid var(--color-divider);z-index:1">SEQ</th>
+              <th style="text-align:left;padding:7px 10px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);position:sticky;top:0;background:var(--color-bg);border-bottom:2px solid var(--color-divider);z-index:1">WINDOW</th>
+              <th style="text-align:left;padding:7px 10px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);position:sticky;top:0;background:var(--color-bg);border-bottom:2px solid var(--color-divider);z-index:1">MOVE</th>
+              <th style="text-align:left;padding:7px 10px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);position:sticky;top:0;background:var(--color-bg);border-bottom:2px solid var(--color-divider);z-index:1">ROUTE</th>
+              <th style="text-align:left;padding:7px 10px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);position:sticky;top:0;background:var(--color-bg);border-bottom:2px solid var(--color-divider);z-index:1">ASSIGNED</th>
+              <th style="text-align:right;padding:7px 16px 7px 10px;font-size:9.5px;font-weight:700;letter-spacing:0.09em;color:var(--color-neutral-600);position:sticky;top:0;background:var(--color-bg);border-bottom:2px solid var(--color-divider);z-index:1">EST</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ rows }}" as="m" hint-placeholder-count="16">
+              <tr onClick="{{ m.onClick }}" style="cursor:pointer;background:{{ m.bg }};border-bottom:1px solid var(--color-neutral-300)" style-hover="background:var(--color-neutral-200)">
+                <td style="padding:8px 10px 8px 16px;font-variant-numeric:tabular-nums;color:var(--color-neutral-600);border-left:3px solid {{ m.mark }}">{{ m.seqLabel }}</td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;white-space:nowrap">{{ m.window }}</td>
+                <td style="padding:8px 10px">
+                  <div style="font-weight:700;letter-spacing:0.01em">{{ m.typeLabel }}</div>
+                  <div style="font-size:11px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums">{{ m.containerId }}</div>
+                </td>
+                <td style="padding:8px 10px;font-variant-numeric:tabular-nums;color:var(--color-neutral-700);white-space:nowrap">{{ m.route }}</td>
+                <td style="padding:8px 10px;white-space:nowrap">
+                  <div>{{ m.operatorName }}</div>
+                  <div style="font-size:11px;color:var(--color-neutral-600)">{{ m.equipment }} · {{ m.stateLabel }}</div>
+                </td>
+                <td style="padding:8px 16px 8px 10px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ m.est }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <sc-if value="{{ showEmptyRows }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px;font-size:12px;color:var(--color-neutral-700);line-height:1.55;max-width:62ch">{{ emptyRowsNote }} {{ noMoveNote }}</div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="border-left:2px solid var(--color-divider);display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;flex:none;border-bottom:2px solid var(--color-divider)">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+          <button onClick="{{ t.onClick }}" style="flex:1;padding:9px 8px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;text-align:left;border:0;border-bottom:2px solid {{ t.mark }};background:transparent;color:{{ t.fg }};cursor:pointer;font-family:var(--font-body);font-weight:700;margin-bottom:-2px">{{ t.label }}</button>
+        </sc-for>
+      </div>
+      <div style="flex:1 1 auto;min-height:0;overflow:auto">
+
+        <sc-if value="{{ showDetail }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="padding:14px 16px 12px">
+              <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">{{ sel.id }} · seq {{ sel.seq }}</div>
+              <div style="font-family:var(--font-heading);font-weight:800;font-size:17px;margin-top:3px;letter-spacing:-0.01em">{{ selTypeLabel }}</div>
+              <div style="font-size:12px;margin-top:4px;font-variant-numeric:tabular-nums;color:var(--color-neutral-800)">{{ sel.containerId }}</div>
+              <div style="font-size:12px;font-variant-numeric:tabular-nums;color:var(--color-neutral-700)">{{ sel.from }} → {{ sel.to }}</div>
+            </div>
+            <div style="padding:12px 16px;border-top:2px solid var(--color-divider);border-bottom:1px solid var(--color-neutral-300);background:var(--color-accent-100)">
+              <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-accent-700);margin-bottom:4px">Why this move</div>
+              <div style="font-size:12.5px;line-height:1.5;text-wrap:pretty">{{ sel.reason }}</div>
+            </div>
+            <sc-for list="{{ detailRows }}" as="d" hint-placeholder-count="6">
+              <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 16px;border-bottom:1px solid var(--color-neutral-300);font-size:11.5px">
+                <span style="color:var(--color-neutral-600)">{{ d.k }}</span>
+                <span style="font-weight:600;text-align:right">{{ d.v }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:12px 16px 6px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Hard constraints</div>
+            <sc-for list="{{ constraints }}" as="c" hint-placeholder-count="5">
+              <div style="display:flex;gap:10px;align-items:baseline;padding:6px 16px;font-size:11.5px">
+                <span style="width:24px;font-weight:700;color:var(--color-neutral-600)">{{ c.id }}</span>
+                <span style="flex:1;color:var(--color-neutral-800);line-height:1.35">{{ c.label }}</span>
+                <span style="font-size:10px;font-weight:700;letter-spacing:0.05em;color:{{ c.color }}">{{ c.verdict }}</span>
+              </div>
+            </sc-for>
+            <div style="height:16px"></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showNoMove }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 16px;font-size:12.5px;line-height:1.55;color:var(--color-neutral-800)">{{ noMoveNote }}</div>
+        </sc-if>
+
+        <sc-if value="{{ showExceptions }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <sc-for list="{{ exceptions }}" as="e" hint-placeholder-count="3">
+              <div style="padding:14px 16px;border-bottom:1px solid var(--color-neutral-300)">
+                <div style="display:flex;justify-content:space-between;align-items:baseline">
+                  <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;color:{{ e.color }}">{{ e.type }}</span>
+                  <span style="font-size:10px;color:var(--color-neutral-600)">{{ e.id }}</span>
+                </div>
+                <div style="font-size:13px;font-weight:700;margin-top:5px">{{ e.subject }}</div>
+                <div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800);margin-top:4px;text-wrap:pretty">{{ e.detail }}</div>
+                <button class="btn btn-secondary" style="font-size:11.5px;padding:5px 10px;margin-top:10px" onClick="{{ e.onClick }}">{{ e.action }}</button>
+              </div>
+            </sc-for>
+            <div style="padding:14px 16px;font-size:11.5px;color:var(--color-neutral-700);line-height:1.55">Infeasible assignments escalate after three resequencing iterations. Overrides are recorded against the plan with a reason code.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showProjection }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <sc-for list="{{ projection }}" as="p" hint-placeholder-count="5">
+              <div style="padding:13px 16px;border-bottom:1px solid var(--color-neutral-300)">
+                <div style="display:flex;justify-content:space-between;font-size:11.5px"><span style="font-weight:700">{{ p.k }}</span><span style="color:var(--color-neutral-600)">target {{ p.target }}</span></div>
+                <div style="display:flex;align-items:baseline;gap:12px;margin-top:6px;font-size:11px;font-variant-numeric:tabular-nums;color:var(--color-neutral-600)">
+                  <span>{{ p.opt }}</span>
+                  <span style="font-family:var(--font-heading);font-weight:800;font-size:17px;line-height:1;color:var(--color-text)">{{ p.exp }}</span>
+                  <span>{{ p.pes }}</span>
+                </div>
+                <div style="position:relative;height:4px;background:var(--color-neutral-300);margin-top:8px">
+                  <div style="position:absolute;top:0;height:4px;background:var(--color-accent-300);left:{{ p.bandLeft }};width:{{ p.bandWidth }}"></div>
+                  <div style="position:absolute;top:-3px;height:10px;width:2px;background:var(--color-text);left:{{ p.mark }}"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:none;border-top:2px solid var(--color-divider);max-height:168px;overflow:auto">
+    <div style="display:flex;align-items:baseline;gap:12px;padding:9px 16px 7px">
+      <span style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Operator schedule</span>
+      <span style="font-size:11px;color:var(--color-neutral-600)">{{ ganttNote }}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:132px 1fr">
+      <div></div>
+      <div style="display:flex;border-bottom:1px solid var(--color-neutral-300)">
+        <sc-for list="{{ hours }}" as="h" hint-placeholder-count="8">
+          <div style="flex:1;font-size:9.5px;color:var(--color-neutral-600);border-left:1px solid var(--color-neutral-300);padding:2px 4px">{{ h }}</div>
+        </sc-for>
+      </div>
+      <sc-for list="{{ lanes }}" as="l" hint-placeholder-count="4">
+        <div style="display:contents">
+          <div style="padding:7px 16px;font-size:11.5px;border-bottom:1px solid var(--color-neutral-300);display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">{{ l.name }}</span><span style="color:var(--color-neutral-600)">{{ l.equipment }}</span></div>
+          <div style="position:relative;height:30px;border-bottom:1px solid var(--color-neutral-300);border-left:1px solid var(--color-neutral-300)">
+            <sc-for list="{{ l.bars }}" as="b" hint-placeholder-count="10">
+              <div onClick="{{ b.onClick }}" title="{{ b.title }}" style="position:absolute;top:8px;height:14px;left:{{ b.left }};width:{{ b.width }};background:{{ b.bg }};cursor:pointer"></div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TYPE_LABEL = {
+  RETRIEVE_STAGE: "Retrieve to staging",
+  PLACE_INBOUND: "Place inbound",
+  RESHUFFLE: "Reshuffle",
+  LOAD_OUTBOUND: "Load outbound",
+  PRE_MARSHAL: "Pre-marshal",
+  RECEIVE_FROM_LANE: "Receive from lane",
+  MOVE_INSPECTION: "Move to inspection"
+};
+
+class Component extends DCLogic {
+  state = { data: null, sel: null, tab: "detail", q: "", filter: "ALL", published: false, configOpen: false, wRaw: [40, 25, 20, 15] };
+
+  componentDidMount() {
+    import("./yard-data.js").then(d => this.setState({ data: d, sel: d.MOVES[8].id }, () => this.applyFocus()));
+  }
+
+  componentDidUpdate(prev) {
+    if (this.props.focus && this.props.focus !== prev.focus) this.applyFocus();
+  }
+
+  applyFocus() {
+    const f = this.props.focus, d = this.state.data;
+    if (!f || !d) return;
+    const m = d.MOVES.find(x => x.containerId === f);
+    if (m) this.setState({ sel: m.id, tab: "detail", filter: "ALL", q: "" });
+    else this.setState({ q: f, filter: "ALL", sel: null, tab: "detail" });
+  }
+
+  renderVals() {
+    const d = this.state.data, s = this.state, published = s.published;
+    const base = {
+      statusLabel: published ? "PUBLISHED" : "DRAFT",
+      statusBg: published ? "var(--color-accent)" : "var(--color-neutral-300)",
+      statusFg: published ? "#fff" : "var(--color-neutral-800)",
+      publishLabel: published ? "Published · view diff" : "Approve & publish",
+      onPublish: () => this.setState({ published: true }),
+      onRegenerate: () => this.setState({ published: false }),
+      onSimulate: () => this.setState({ tab: "projection" }),
+      onConfig: () => this.setState({ configOpen: !s.configOpen }),
+      configOpen: s.configOpen,
+      configWeights: ["Machine minutes", "Weighted lateness", "Predicted rehandles", "Detention exposure"].map((k, i) => ({
+        k, raw: s.wRaw[i], v: (s.wRaw[i] / 100).toFixed(2),
+        onInput: e => { const w = s.wRaw.slice(); w[i] = +e.target.value; this.setState({ wRaw: w }); }
+      })),
+      configStability: [
+        { k: "Freeze window", v: "20 min" },
+        { k: "In-progress immutable", v: "true" },
+        { k: "Minimum improvement", v: "8 machine-min" },
+        { k: "Reassign cap", v: "2 / operator / hour" }
+      ],
+      onQuery: e => this.setState({ q: e.target.value }),
+      q: s.q,
+      hours: ["06", "07", "08", "09", "10", "11", "12", "13"],
+      ganttNote: published ? "Frozen window 20 min · in-progress moves immutable" : "Preview — freeze applies at publication"
+    };
+    if (!d) return base;
+
+    const moves = d.MOVES;
+    const types = ["ALL", "RETRIEVE_STAGE", "PLACE_INBOUND", "RESHUFFLE", "LOAD_OUTBOUND"];
+    const q = s.q.trim().toLowerCase();
+    const rows = moves.filter(m =>
+      (s.filter === "ALL" || m.type === s.filter) &&
+      (!q || (m.containerId + m.from + m.to + m.operatorName + m.equipment + m.type).toLowerCase().includes(q))
+    ).map(m => ({
+      ...m,
+      seqLabel: String(m.seq).padStart(3, "0"),
+      window: m.start + "–" + m.end,
+      typeLabel: TYPE_LABEL[m.type],
+      route: m.from + "  →  " + m.to,
+      est: m.estMin.toFixed(1) + "′",
+      stateLabel: m.state === "IN_PROGRESS" ? "in progress" : m.state.toLowerCase(),
+      bg: m.id === s.sel ? "var(--color-accent-100)" : "transparent",
+      mark: m.id === s.sel ? "var(--color-accent)" : m.frozen ? "var(--color-neutral-400)" : "transparent",
+      onClick: () => this.setState({ sel: m.id, tab: "detail" })
+    }));
+
+    const sel = moves.find(m => m.id === s.sel) || null;
+    const lanes = d.OPERATORS.filter(o => o.status === "on shift").map(o => ({
+      name: o.name, equipment: o.equipment,
+      bars: moves.filter(m => m.operator === o.id).map(m => ({
+        left: ((m.startMin - 360) / 480 * 100).toFixed(2) + "%",
+        width: Math.max(0.5, (m.endMin - m.startMin) / 480 * 100).toFixed(2) + "%",
+        bg: m.id === s.sel ? "var(--color-accent)" : m.frozen ? "var(--color-neutral-500)" : "var(--color-neutral-800)",
+        title: m.id + " " + TYPE_LABEL[m.type] + " " + m.start + "–" + m.end,
+        onClick: () => this.setState({ sel: m.id, tab: "detail" })
+      }))
+    }));
+
+    const totalMin = moves.reduce((a, m) => a + m.estMin, 0);
+
+    return {
+      ...base,
+      assumptions: d.ASSUMPTIONS.map(a => ({
+        ...a,
+        noteColor: /unanswered|unconfirmed|maintenance/.test(a.note) ? "var(--color-accent-700)" : "var(--color-neutral-600)"
+      })),
+      weights: [
+        { k: "Machine minutes", v: "0.40", pct: "40%" },
+        { k: "Weighted lateness", v: "0.25", pct: "25%" },
+        { k: "Predicted rehandles", v: "0.20", pct: "20%" },
+        { k: "Detention exposure", v: "0.15", pct: "15%" }
+      ],
+      metrics: [
+        { k: "Moves planned", v: "96", sub: "of 284 today" },
+        { k: "Machine-hours", v: (totalMin / 60).toFixed(1), sub: "of 32.0" },
+        { k: "Truck turn P50", v: "13.4′", sub: "target 15′" },
+        { k: "Job cycle P50", v: "4.8′", sub: "target 5′" },
+        { k: "Detention at risk", v: "$8.4k", sub: "next 72 h", color: "var(--color-accent-700)" },
+        { k: "Exceptions", v: "3", sub: "unresolved", color: "var(--color-accent-700)" }
+      ],
+      typeFilters: types.map(t => ({
+        label: t === "ALL" ? "All" : TYPE_LABEL[t],
+        bg: s.filter === t ? "var(--color-text)" : "transparent",
+        fg: s.filter === t ? "var(--color-bg)" : "var(--color-neutral-800)",
+        onClick: () => this.setState({ filter: t })
+      })),
+      rows,
+      rowCountLabel: rows.length + " of " + moves.length + " moves · 12 frozen",
+      tabs: [
+        { key: "detail", label: "Move" },
+        { key: "exceptions", label: "Exceptions 3" },
+        { key: "projection", label: "Projected KPI" }
+      ].map(t => ({
+        label: t.label,
+        mark: s.tab === t.key ? "var(--color-accent)" : "transparent",
+        fg: s.tab === t.key ? "var(--color-text)" : "var(--color-neutral-600)",
+        onClick: () => this.setState({ tab: t.key })
+      })),
+      showDetail: s.tab === "detail" && !!sel,
+      showNoMove: s.tab === "detail" && !sel,
+      noMoveNote: (this.props.focus || s.q || "This container") + " has no move in plan P-2026-08-11 — 96 of 897 containers are moved today. The rest sit inside their free time with no retrieval, reshuffle or pre-marshal scheduled.",
+      showEmptyRows: rows.length === 0,
+      emptyRowsNote: rows.length === 0 ? "No moves match " + (s.q ? "“" + s.q + "”" : "this filter") + "." : "",
+      showExceptions: s.tab === "exceptions",
+      showProjection: s.tab === "projection",
+      sel: sel || {},
+      selTypeLabel: sel ? TYPE_LABEL[sel.type] : "",
+      detailRows: !sel ? [] : [
+        { k: "Machine / operator", v: sel.equipment + " · " + sel.operatorName },
+        { k: "Window", v: sel.start + "–" + sel.end + " (" + sel.estMin.toFixed(1) + "′)" },
+        { k: "Travel / lift / set-down", v: (sel.estMin * 0.45).toFixed(1) + " / " + (sel.estMin * 0.3).toFixed(1) + " / " + (sel.estMin * 0.25).toFixed(1) },
+        { k: "Order priority", v: sel.priority },
+        { k: "State", v: sel.frozen ? sel.state.toLowerCase() + " · frozen" : sel.state.toLowerCase() },
+        { k: "Weight snapshot", v: "WS-2026-08-10#a41f9c" }
+      ],
+      constraints: !sel ? [] : [
+        { id: "C2", label: "Stack height within zone max and reach envelope", verdict: "PASS", color: "var(--color-neutral-700)" },
+        { id: "C3", label: "Row depth within machine reach", verdict: "PASS", color: "var(--color-neutral-700)" },
+        { id: "C4", label: "Gross weight against capacity chart", verdict: "PASS", color: "var(--color-neutral-700)" },
+        { id: "C9", label: "Operator certified for cargo class", verdict: "PASS", color: "var(--color-neutral-700)" },
+        { id: "C12", label: "Destination zone below utilisation ceiling", verdict: sel.to[0] === "C" ? "AT CEILING" : "PASS", color: sel.to[0] === "C" ? "var(--color-accent-700)" : "var(--color-neutral-700)" }
+      ],
+      exceptions: d.EXCEPTIONS.map(e => ({
+        ...e,
+        color: e.severity === "high" ? "var(--color-accent-700)" : "var(--color-neutral-700)",
+        onClick: () => this.setState({ tab: "detail" })
+      })),
+      projection: [
+        { k: "Truck turn P50", target: "15.0′", opt: "11.8′", exp: "13.4′", pes: "17.1′", bandLeft: "20%", bandWidth: "48%", mark: "66%" },
+        { k: "Truck turn P90", target: "22.0′", opt: "18.2′", exp: "21.0′", pes: "27.4′", bandLeft: "26%", bandWidth: "52%", mark: "70%" },
+        { k: "Job cycle P50", target: "5.0′", opt: "4.2′", exp: "4.8′", pes: "6.1′", bandLeft: "18%", bandWidth: "50%", mark: "62%" },
+        { k: "Plan adherence", target: "≥85%", opt: "94%", exp: "89%", pes: "78%", bandLeft: "22%", bandWidth: "56%", mark: "58%" },
+        { k: "Detention breaches", target: "0", opt: "0", exp: "0", pes: "2", bandLeft: "10%", bandWidth: "40%", mark: "22%" }
+      ],
+      lanes
+    };
+  }
+}
+</script>
+</body>
+</html>

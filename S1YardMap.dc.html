@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/modernist-5648be78-77d7-4015-8810-603a33e645f0/styles.css">
+  <script src="_ds/modernist-5648be78-77d7-4015-8810-603a33e645f0/_ds_bundle.js"></script>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto;font-family:var(--font-body);color:var(--color-text);background:var(--color-bg)">
+
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 20px;border-bottom:2px solid var(--color-divider);flex:none">
+    <div style="display:flex;flex-direction:column;gap:2px;margin-right:6px">
+      <span style="font-family:var(--font-heading);font-weight:800;font-size:19px;letter-spacing:-0.015em">Yard</span>
+      <span style="font-size:11px;color:var(--color-neutral-700)">{{ summary }}</span>
+    </div>
+    <div style="display:flex">
+      <sc-for list="{{ modeGroups }}" as="g" hint-placeholder-count="2">
+        <button onClick="{{ g.onClick }}" style="font-size:10.5px;letter-spacing:0.05em;padding:6px 12px;border:1px solid var(--color-neutral-400);border-right:0;background:{{ g.bg }};color:{{ g.fg }};cursor:pointer;font-family:var(--font-body);font-weight:700">{{ g.label }}</button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ isMap }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input class="input" placeholder="Container, consignee, vessel, slot…" value="{{ q }}" onInput="{{ onQuery }}" style="font-size:12px;padding:5px 9px;height:30px;width:230px">
+        <div style="display:flex">
+          <sc-for list="{{ overlays }}" as="m" hint-placeholder-count="4">
+            <button onClick="{{ m.onClick }}" style="font-size:10.5px;letter-spacing:0.04em;padding:6px 11px;border:1px solid var(--color-neutral-400);border-right:0;background:{{ m.bg }};color:{{ m.fg }};cursor:pointer;font-family:var(--font-body);font-weight:600">{{ m.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <div style="display:flex;gap:14px;margin-left:auto;align-items:center">
+      <sc-for list="{{ legend }}" as="l" hint-placeholder-count="4">
+        <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-neutral-700)"><span style="width:11px;height:11px;background:{{ l.color }};border:1px solid var(--color-neutral-500)"></span>{{ l.label }}</span>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ isMap }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid var(--color-divider);flex:none">
+      <sc-for list="{{ topKpis }}" as="k" hint-placeholder-count="5">
+        <div style="flex:1 1 150px;padding:9px 20px;border-right:1px solid var(--color-neutral-300);display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">{{ k.k }}</span>
+          <div style="display:flex;align-items:baseline;gap:7px">
+            <span style="font-family:var(--font-heading);font-weight:800;font-size:19px;line-height:1;letter-spacing:-0.02em;color:{{ k.color }}">{{ k.v }}</span>
+            <span style="font-size:11px;color:var(--color-neutral-600)">{{ k.sub }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:clamp(180px,16vw,230px) minmax(360px,1fr) clamp(260px,25vw,350px);flex:1 1 auto;min-height:340px;overflow:auto">
+      <div style="border-right:2px solid var(--color-divider);overflow:auto">
+        <div style="padding:11px 16px 8px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Zones · occupancy vs ceiling</div>
+        <sc-for list="{{ zones }}" as="z" hint-placeholder-count="7">
+          <button onClick="{{ z.onClick }}" style="display:block;width:100%;text-align:left;padding:9px 16px;border:0;border-left:3px solid {{ z.mark }};background:{{ z.bg }};cursor:pointer;font-family:var(--font-body)" style-hover="background:var(--color-neutral-200)">
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600"><span>{{ z.name }}</span><span style="font-variant-numeric:tabular-nums;color:{{ z.pctColor }}">{{ z.pctLabel }}</span></div>
+            <div style="position:relative;height:4px;background:var(--color-neutral-300);margin-top:5px">
+              <div style="position:absolute;left:0;top:0;height:4px;background:{{ z.barColor }};width:{{ z.pctLabel }}"></div>
+              <div style="position:absolute;top:-2px;height:8px;width:2px;background:var(--color-text);left:{{ z.ceiling }}"></div>
+            </div>
+            <div style="font-size:10.5px;color:var(--color-neutral-600);margin-top:4px">{{ z.note }}</div>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;flex-direction:column;min-height:0;overflow:auto">
+        <div style="padding:11px 16px 6px;display:flex;align-items:baseline;gap:10px">
+          <span style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Blocks · {{ zoneName }}</span>
+          <span style="font-size:11px;color:var(--color-neutral-600)">click a block to open its front view</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;padding:0 16px 12px">
+          <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="6">
+            <button onClick="{{ b.onClick }}" style="border:2px solid {{ b.border }};background:transparent;padding:7px 9px;cursor:pointer;font-family:var(--font-body);text-align:left;min-width:104px" style-hover="background:var(--color-neutral-200)">
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700"><span>{{ b.label }}</span><span style="color:var(--color-neutral-600);font-variant-numeric:tabular-nums">{{ b.count }}</span></div>
+              <div style="display:flex;gap:2px;margin-top:6px">
+                <sc-for list="{{ b.cells }}" as="c" hint-placeholder-count="10">
+                  <span style="width:7px;height:20px;background:{{ c }}"></span>
+                </sc-for>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+
+        <div style="border-top:2px solid var(--color-divider);padding:11px 16px 6px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+          <span style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Front view · block {{ blockLabel }}</span>
+          <div style="display:flex">
+            <sc-for list="{{ rowTabs }}" as="r" hint-placeholder-count="3">
+              <button onClick="{{ r.onClick }}" style="font-size:10.5px;padding:4px 10px;border:1px solid var(--color-neutral-400);border-right:0;background:{{ r.bg }};color:{{ r.fg }};cursor:pointer;font-family:var(--font-body);font-weight:600">{{ r.label }}</button>
+            </sc-for>
+          </div>
+          <span style="font-size:11px;color:var(--color-neutral-600)">{{ reachNote }}</span>
+        </div>
+        <div style="padding:4px 16px 18px;overflow:auto">
+          <sc-for list="{{ tiers }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex;align-items:stretch;gap:3px;margin-bottom:3px">
+              <span style="width:34px;font-size:10px;color:var(--color-neutral-600);align-self:center">T{{ t.tier }}</span>
+              <sc-for list="{{ t.cells }}" as="c" hint-placeholder-count="10">
+                <button onClick="{{ c.onClick }}" title="{{ c.title }}" style="flex:1;min-width:52px;height:38px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};cursor:{{ c.cursor }};font-family:var(--font-body);font-size:9.5px;letter-spacing:0.02em;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:0 5px;gap:1px" style-hover="outline:2px solid var(--color-accent)">
+                  <span style="font-weight:700">{{ c.top }}</span>
+                  <span style="opacity:0.75">{{ c.sub }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="display:flex;gap:3px;margin-top:5px">
+            <span style="width:34px"></span>
+            <sc-for list="{{ slotLabels }}" as="s" hint-placeholder-count="10">
+              <span style="flex:1;min-width:52px;font-size:9.5px;color:var(--color-neutral-600)">{{ s }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-left:2px solid var(--color-divider);display:flex;flex-direction:column;min-height:0;overflow:auto">
+        <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="padding:14px 16px 12px">
+              <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">{{ sel.address }}</div>
+              <div style="font-family:var(--font-heading);font-weight:800;font-size:19px;margin-top:3px;letter-spacing:-0.01em;font-variant-numeric:tabular-nums">{{ sel.id }}</div>
+              <div style="font-size:12px;color:var(--color-neutral-700);margin-top:2px">{{ selLine }}</div>
+            </div>
+            <div style="padding:12px 16px;border-top:2px solid var(--color-divider);border-bottom:1px solid var(--color-neutral-300);background:var(--color-accent-100)">
+              <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-accent-700);margin-bottom:4px">Why here</div>
+              <div style="font-size:12.5px;line-height:1.5;text-wrap:pretty">{{ sel.whyHere }}</div>
+            </div>
+            <sc-for list="{{ detailRows }}" as="d" hint-placeholder-count="9">
+              <div style="display:flex;justify-content:space-between;gap:12px;padding:8px 16px;border-bottom:1px solid var(--color-neutral-300);font-size:11.5px">
+                <span style="color:var(--color-neutral-600)">{{ d.k }}</span>
+                <span style="font-weight:600;text-align:right;color:{{ d.color }}">{{ d.v }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:12px 16px 6px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Move history</div>
+            <sc-for list="{{ history }}" as="h" hint-placeholder-count="4">
+              <div style="display:flex;gap:10px;padding:6px 16px;font-size:11.5px">
+                <span style="color:var(--color-neutral-600);font-variant-numeric:tabular-nums;width:42px">{{ h.t }}</span>
+                <span style="flex:1;line-height:1.35">{{ h.what }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:12px 16px 6px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Open in</div>
+            <div style="display:flex;flex-direction:column;gap:6px;padding:0 16px 18px">
+              <sc-for list="{{ links }}" as="l" hint-placeholder-count="3">
+                <button class="btn btn-secondary" onClick="{{ l.onClick }}" style="font-size:11.5px;padding:6px 10px;justify-content:flex-start">{{ l.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noSel }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px;font-size:12px;color:var(--color-neutral-700);line-height:1.6">Select a container in the front view to see its record, the sentence explaining why the planner put it there, and its links into the plan and the tower.</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isDash }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1 1 auto;min-height:0;overflow:auto">
+      <div style="display:flex;flex-wrap:wrap;border-bottom:2px solid var(--color-divider)">
+        <sc-for list="{{ contractual }}" as="c" hint-placeholder-count="4">
+          <div style="flex:1 1 210px;padding:13px 20px;border-right:1px solid var(--color-neutral-300)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">{{ c.k }}</span>
+              <span style="font-size:10px;font-weight:700;letter-spacing:0.05em;color:{{ c.color }}">{{ c.verdict }}</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:9px;margin-top:5px">
+              <span style="font-family:var(--font-heading);font-weight:800;font-size:26px;line-height:1;letter-spacing:-0.025em;color:{{ c.color }}">{{ c.v }}</span>
+              <span style="font-size:11.5px;color:var(--color-neutral-600)">target {{ c.target }} · baseline {{ c.baseline }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(360px,1fr) minmax(320px,1fr);min-height:340px">
+        <div style="border-right:2px solid var(--color-divider);padding:12px 18px 16px">
+          <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Truck turn by hour</div>
+          <div style="display:flex;align-items:flex-end;gap:8px;height:160px;margin-top:10px">
+            <sc-for list="{{ turnBars }}" as="b" hint-placeholder-count="8">
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;height:100%">
+                <div style="height:{{ b.p90 }};background:var(--color-neutral-300)"></div>
+                <div style="height:{{ b.p50 }};background:{{ b.color }}"></div>
+                <span style="font-size:9.5px;color:var(--color-neutral-600)">{{ b.hour }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:11px;color:var(--color-neutral-700);margin-top:10px;line-height:1.5">Grey is P90, solid is P50. The 08:00 hour breaches — inbound put-away competes with outbound loading, which is what appointment smoothing addresses.</div>
+          <div style="margin-top:14px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Machine job cycle by move type</div>
+          <sc-for list="{{ cycleRows }}" as="r" hint-placeholder-count="5">
+            <div style="padding:7px 0;border-bottom:1px solid var(--color-neutral-300)">
+              <div style="display:flex;justify-content:space-between;font-size:11.5px"><span>{{ r.type }}</span><span style="font-variant-numeric:tabular-nums;color:var(--color-neutral-600)">P50 <strong style="color:{{ r.color }}">{{ r.p50 }}</strong> · P90 {{ r.p90 }} · n={{ r.n }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:12px 18px 16px">
+          <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Machine-hours required vs available</div>
+          <sc-for list="{{ capacity }}" as="c" hint-placeholder-count="6">
+            <div style="padding:9px 0;border-bottom:1px solid var(--color-neutral-300)">
+              <div style="display:flex;justify-content:space-between;font-size:11.5px">
+                <span style="font-weight:600">{{ c.month }} · {{ c.volume }} containers</span>
+                <span style="font-variant-numeric:tabular-nums;color:{{ c.color }}">{{ c.line }}</span>
+              </div>
+              <div style="position:relative;height:8px;background:var(--color-neutral-200);margin-top:6px">
+                <div style="position:absolute;left:0;top:0;height:8px;background:{{ c.color }};width:{{ c.reqPct }}"></div>
+                <div style="position:absolute;top:-2px;height:12px;width:2px;background:var(--color-text);left:{{ c.avPct }}"></div>
+              </div>
+              <div style="font-size:10.5px;color:var(--color-neutral-600);margin-top:4px">{{ c.note }}</div>
+            </div>
+          </sc-for>
+          <div style="margin-top:14px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Supporting KPI set</div>
+          <sc-for list="{{ supporting }}" as="s" hint-placeholder-count="6">
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--color-neutral-300);font-size:11.5px">
+              <span style="color:var(--color-neutral-700)">{{ s.k }}</span>
+              <span style="font-weight:600;font-variant-numeric:tabular-nums;color:{{ s.color }}">{{ s.v }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { data: null, ops: null, zone: "A", block: 1, row: 1, sel: null, q: "", mode: "status", view: "map" };
+
+  componentDidMount() {
+    Promise.all([import("./yard-data.js"), import("./yard-ops.js")]).then(([d, o]) => {
+      const first = d.CONTAINERS.find(c => c.zone === "A" && c.block === 1 && c.row === 1);
+      this.setState({ data: d, ops: o, sel: first ? first.id : null });
+    });
+  }
+
+  componentDidUpdate(prev) {
+    const f = this.props.focus;
+    if (f && f !== prev.focus && this.state.data) {
+      const c = this.state.data.CONTAINERS.find(x => x.id === f);
+      if (c) this.setState({ sel: c.id, zone: c.zone, block: c.block, row: c.row, view: "map" });
+    }
+  }
+
+  color(c) {
+    const m = this.state.mode;
+    if (m === "lfd") {
+      const b = c.hoursToLFD < 0 ? "breached" : c.hoursToLFD <= 24 ? "red" : c.hoursToLFD <= 72 ? "amber" : "green";
+      return { breached: "var(--color-accent-700)", red: "var(--color-accent)", amber: "var(--color-accent-300)", green: "var(--color-neutral-300)" }[b];
+    }
+    if (m === "channel") return { rojo: "var(--color-accent-700)", naranja: "var(--color-accent-400)", verde: "var(--color-neutral-300)" }[c.channel] || "var(--color-neutral-200)";
+    if (m === "dwell") return c.dwellDays > 18 ? "var(--color-neutral-900)" : c.dwellDays > 10 ? "var(--color-neutral-700)" : c.dwellDays > 4 ? "var(--color-neutral-500)" : "var(--color-neutral-300)";
+    return { IN_YARD: "var(--color-neutral-400)", STAGED: "var(--color-accent-400)", AT_RECEIVING_LANE: "var(--color-neutral-600)", CUSTOMS_CONTROLLED: "var(--color-accent-700)" }[c.status] || "var(--color-neutral-300)";
+  }
+
+  renderVals() {
+    const d = this.state.data, o = this.state.ops, s = this.state;
+    const modeGroups = [["map", "Map"], ["dash", "Dashboard"]].map(([k, label]) => ({
+      label, bg: s.view === k ? "var(--color-text)" : "transparent",
+      fg: s.view === k ? "var(--color-bg)" : "var(--color-neutral-800)",
+      onClick: () => this.setState({ view: k })
+    }));
+    const base = {
+      isMap: s.view === "map", isDash: s.view === "dash",
+      modeGroups,
+      q: s.q,
+      onQuery: e => this.setState({ q: e.target.value }),
+      overlays: [["status", "Status"], ["lfd", "LFD"], ["channel", "Channel"], ["dwell", "Dwell"]].map(([k, label]) => ({
+        label, bg: s.mode === k ? "var(--color-text)" : "transparent",
+        fg: s.mode === k ? "var(--color-bg)" : "var(--color-neutral-800)",
+        onClick: () => this.setState({ mode: k })
+      })),
+      contractual: [
+        { k: "Truck turn P50", v: "13.8′", target: "15.0′", baseline: "31.4′", verdict: "WITHIN", color: "var(--color-text)" },
+        { k: "Truck turn P90", v: "21.4′", target: "22.0′", baseline: "52.8′", verdict: "WITHIN", color: "var(--color-text)" },
+        { k: "Job cycle P50", v: "4.9′", target: "5.0′", baseline: "8.7′", verdict: "WITHIN", color: "var(--color-text)" },
+        { k: "Job cycle P90", v: "7.6′", target: "7.5′", baseline: "14.2′", verdict: "OVER 0.1′", color: "var(--color-accent-700)" }
+      ]
+    };
+    if (!d) return base;
+
+    const legends = {
+      status: [["In yard", "var(--color-neutral-400)"], ["Staged", "var(--color-accent-400)"], ["Receiving", "var(--color-neutral-600)"], ["Customs held", "var(--color-accent-700)"]],
+      lfd: [["Breached", "var(--color-accent-700)"], ["≤24 h", "var(--color-accent)"], ["≤72 h", "var(--color-accent-300)"], [">72 h", "var(--color-neutral-300)"]],
+      channel: [["Rojo", "var(--color-accent-700)"], ["Naranja", "var(--color-accent-400)"], ["Verde", "var(--color-neutral-300)"]],
+      dwell: [["<5 d", "var(--color-neutral-300)"], ["5–10 d", "var(--color-neutral-500)"], ["10–18 d", "var(--color-neutral-700)"], [">18 d", "var(--color-neutral-900)"]]
+    };
+
+    const q = s.q.trim().toLowerCase();
+    const match = c => !q || (c.id + c.consignee + c.vessel + c.address + c.carrierName).toLowerCase().includes(q);
+    const all = d.CONTAINERS;
+    const zoneDef = d.ZONES.find(z => z.id === s.zone) || d.ZONES[0];
+
+    const zones = d.ZONES.filter(z => !"RS".includes(z.id)).map(z => {
+      const cap = z.blocks * z.rows * z.slots * z.maxTiers;
+      const used = all.filter(c => c.zone === z.id).length;
+      const pct = Math.round(used / cap * 100);
+      const over = pct > z.ceiling * 100;
+      return {
+        name: z.name.replace("Zone ", "").replace(" — ", " · "),
+        pctLabel: pct + "%",
+        pctColor: over ? "var(--color-accent-700)" : "var(--color-neutral-700)",
+        barColor: over ? "var(--color-accent)" : "var(--color-neutral-700)",
+        ceiling: Math.round(z.ceiling * 100) + "%",
+        note: used + " of " + cap + " slots · ceiling " + Math.round(z.ceiling * 100) + "%",
+        bg: s.zone === z.id ? "var(--color-accent-100)" : "transparent",
+        mark: s.zone === z.id ? "var(--color-accent)" : "transparent",
+        onClick: () => this.setState({ zone: z.id, block: 1, row: 1 })
+      };
+    });
+
+    const blocks = Array.from({ length: zoneDef.blocks }, (_, i) => i + 1).map(b => {
+      const inBlock = all.filter(c => c.zone === zoneDef.id && c.block === b);
+      const cells = Array.from({ length: zoneDef.slots }, (_, i) => {
+        const stack = inBlock.filter(c => c.slot === i + 1);
+        const top = stack.sort((x, y) => y.tier - x.tier)[0];
+        return top ? this.color(top) : "var(--color-neutral-200)";
+      });
+      return {
+        label: zoneDef.id + "-" + String(b).padStart(2, "0"),
+        count: inBlock.length, cells,
+        border: s.block === b ? "var(--color-accent)" : "var(--color-neutral-400)",
+        onClick: () => this.setState({ block: b, row: 1 })
+      };
+    });
+
+    const tiers = Array.from({ length: zoneDef.maxTiers }, (_, i) => zoneDef.maxTiers - i).map(tier => ({
+      tier,
+      cells: Array.from({ length: zoneDef.slots }, (_, i) => {
+        const c = all.find(x => x.zone === zoneDef.id && x.block === s.block && x.row === s.row && x.slot === i + 1 && x.tier === tier);
+        if (!c) return { top: "", sub: "", bg: "transparent", border: "var(--color-neutral-300)", fg: "var(--color-neutral-600)", cursor: "default", title: "empty", onClick: () => {} };
+        const selected = c.id === s.sel;
+        const dim = q && !match(c);
+        const bg = this.color(c);
+        const dark = /900|800|700|accent\)/.test(bg) || bg === "var(--color-neutral-600)";
+        return {
+          top: c.id.slice(0, 4),
+          sub: c.id.slice(4) + " · " + (c.hoursToLFD < 0 ? "−" + Math.abs(c.hoursToLFD) + "h" : c.hoursToLFD + "h"),
+          bg, fg: dark ? "#fff" : "var(--color-text)",
+          border: selected ? "var(--color-accent)" : "var(--color-neutral-500)",
+          cursor: "pointer",
+          title: c.id + " · " + c.consignee + " · " + c.address,
+          opacity: dim ? 0.3 : 1,
+          onClick: () => this.setState({ sel: c.id })
+        };
+      })
+    }));
+
+    const sel = all.find(c => c.id === s.sel);
+    const hits = q ? all.filter(match).length : null;
+    const nav = this.props.onNavigate || (() => {});
+
+    return {
+      ...base,
+      summary: all.length + " containers · " + (hits === null ? "7 zones · overlay: " + s.mode : hits + " match “" + s.q + "”"),
+      legend: (base.isMap ? legends[s.mode] : []).map(([label, color]) => ({ label, color })),
+      topKpis: [
+        { k: "Truck turn P50", v: "13.8′", sub: "target 15′" },
+        { k: "Job cycle P50", v: "4.9′", sub: "target 5′" },
+        { k: "Occupancy", v: "72%", sub: "ceiling 85%" },
+        { k: "Detention at risk 72 h", v: "$8.4k", sub: "31 containers", color: "var(--color-accent-700)" },
+        { k: "Plan adherence", v: "89%", sub: "target ≥85%" }
+      ],
+      zones, zoneName: zoneDef.name, blocks,
+      blockLabel: zoneDef.id + "-" + String(s.block).padStart(2, "0"),
+      rowTabs: Array.from({ length: zoneDef.rows }, (_, i) => i + 1).map(r => ({
+        label: "Row " + r,
+        bg: s.row === r ? "var(--color-text)" : "transparent",
+        fg: s.row === r ? "var(--color-bg)" : "var(--color-neutral-800)",
+        onClick: () => this.setState({ row: r })
+      })),
+      reachNote: "row " + s.row + " of " + zoneDef.rows + " · max tier " + zoneDef.maxTiers,
+      tiers, slotLabels: Array.from({ length: zoneDef.slots }, (_, i) => "S" + (i + 1)),
+      hasSel: !!sel, noSel: !sel,
+      sel: sel || {},
+      selLine: sel ? sel.consignee + " · " + sel.carrierName + " · " + sel.vessel : "",
+      detailRows: sel ? [
+        { k: "Size / gross", v: sel.size + " · " + (sel.grossKg / 1000).toFixed(1) + " t" },
+        { k: "Status", v: sel.status.replace(/_/g, " ").toLowerCase() },
+        { k: "Hours to LFD", v: sel.hoursToLFD < 0 ? "breached " + Math.abs(sel.hoursToLFD) + " h" : sel.hoursToLFD + " h", color: sel.hoursToLFD <= 24 ? "var(--color-accent-700)" : "var(--color-text)" },
+        { k: "Customs channel", v: sel.channel, color: sel.channel === "rojo" || sel.channel === "naranja" ? "var(--color-accent-700)" : "var(--color-text)" },
+        { k: "Dwell", v: sel.dwellDays + " days" },
+        { k: "Order priority", v: sel.priority },
+        { k: "Hazmat", v: sel.hazmat ? "IMDG " + sel.imdg : "no" },
+        { k: "Seal", v: sel.seal },
+        { k: "Terminal", v: sel.terminal }
+      ] : [],
+      history: sel ? [
+        { t: "05:12", what: "Placed at " + sel.address + " by OP-207 (RS-02), 4.2′" },
+        { t: "04:48", what: "Received from receiving lane R-02" },
+        { t: "04:31", what: "Gate-in, EIR captured, seal " + sel.seal + " verified" },
+        { t: "02:55", what: "Departed " + sel.terminal }
+      ] : [],
+      links: sel ? [
+        { label: (d.MOVES.some(m => m.containerId === sel.id) ? "Planned move in the night plan →" : "No planned move today · open the plan →"), onClick: () => nav("S4", sel.id) },
+        { label: "Related events in the tower →", onClick: () => nav("S7", sel.id) },
+        { label: "Container in the gate console →", onClick: () => nav("S2", sel.id) }
+      ] : [],
+      turnBars: o ? o.TURN_BY_HOUR.map(t => ({
+        hour: t.hour,
+        p50: (t.p50 / 28 * 100).toFixed(1) + "%",
+        p90: ((t.p90 - t.p50) / 28 * 100).toFixed(1) + "%",
+        color: t.p50 > 15 ? "var(--color-accent)" : "var(--color-neutral-800)"
+      })) : [],
+      cycleRows: o ? o.CYCLE_BY_TYPE.map(c => ({
+        type: c.type, p50: c.p50.toFixed(1) + "′", p90: c.p90.toFixed(1) + "′", n: c.n,
+        color: c.p50 > 5 ? "var(--color-accent)" : "var(--color-neutral-800)"
+      })) : [],
+      capacity: o ? o.CAPACITY.map(c => ({
+        month: c.month, volume: c.volume,
+        line: c.required.toFixed(1) + " req / " + c.available.toFixed(1) + " avail",
+        reqPct: Math.min(100, c.required / 55 * 100).toFixed(0) + "%",
+        avPct: (c.available / 55 * 100).toFixed(0) + "%",
+        color: c.breach ? "var(--color-accent)" : "var(--color-neutral-700)",
+        note: c.breach ? "breach — " + (c.required - c.available).toFixed(1) + " machine-hours short" : "within available hours"
+      })) : [],
+      supporting: [
+        { k: "Plan adherence", v: "89%", color: "var(--color-text)" },
+        { k: "Plan stability index", v: "0.31", color: "var(--color-text)" },
+        { k: "Rehandles per move", v: "0.34", color: "var(--color-text)" },
+        { k: "On-time staging", v: "93%", color: "var(--color-text)" },
+        { k: "Detention avoided 30 d", v: "$17.4k", color: "var(--color-text)" },
+        { k: "Operator adoption", v: "96%", color: "var(--color-text)" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

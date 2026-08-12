@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/modernist-5648be78-77d7-4015-8810-603a33e645f0/styles.css">
+  <script src="_ds/modernist-5648be78-77d7-4015-8810-603a33e645f0/_ds_bundle.js"></script>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto;font-family:var(--font-body);color:var(--color-text);background:var(--color-bg)">
+
+  <div style="display:flex;align-items:center;gap:18px;padding:14px 20px 12px;border-bottom:2px solid var(--color-divider);flex:none">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:var(--font-heading);font-weight:800;font-size:19px;letter-spacing:-0.015em">Operator tablet</span>
+      <span style="font-size:11px;color:var(--color-neutral-700)">OP-114 R. Giménez · RS-01 · shift 06:00–14:00 · device-bound, offline queue armed</span>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn btn-ghost" style="font-size:12px;padding:7px 12px" onClick="{{ onReset }}">Restart run</button>
+      <button class="btn btn-secondary" style="font-size:12px;padding:7px 12px" onClick="{{ onOffline }}">{{ offlineLabel }}</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(360px,440px) minmax(300px,1fr);flex:1 1 auto;min-height:340px;overflow:auto">
+
+    <div style="border-right:2px solid var(--color-divider);padding:20px;display:flex;justify-content:center;overflow:auto">
+      <div style="width:340px;border:12px solid var(--color-text);background:var(--color-bg);align-self:flex-start">
+        <div style="display:flex;justify-content:space-between;padding:6px 12px;background:var(--color-text);color:var(--color-bg);font-size:10px;letter-spacing:0.06em">
+          <span>06:24</span><span>{{ connLabel }} · 84%</span>
+        </div>
+
+        <div style="padding:14px 14px 10px;border-bottom:2px solid var(--color-divider)">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-neutral-700)">
+            <span>Task {{ task.seq }}</span><span>{{ task.id }}</span>
+          </div>
+          <div style="font-family:var(--font-heading);font-weight:800;font-size:23px;line-height:1.1;margin-top:6px;letter-spacing:-0.02em">{{ stepTitle }}</div>
+        </div>
+
+        <sc-if value="{{ isInstruction }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="padding:14px;border-bottom:1px solid var(--color-neutral-300)">
+              <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">Container</div>
+              <div style="font-family:var(--font-heading);font-weight:800;font-size:30px;letter-spacing:-0.02em;line-height:1.1;font-variant-numeric:tabular-nums">{{ task.container }}</div>
+              <div style="font-size:14px;margin-top:4px">{{ task.size }} · {{ task.weight }}</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr">
+              <div style="padding:12px 14px;border-right:1px solid var(--color-neutral-300);border-bottom:1px solid var(--color-neutral-300)">
+                <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">From</div>
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:20px;font-variant-numeric:tabular-nums">{{ task.from }}</div>
+              </div>
+              <div style="padding:12px 14px;border-bottom:1px solid var(--color-neutral-300)">
+                <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">To</div>
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:20px;font-variant-numeric:tabular-nums">{{ task.to }}</div>
+              </div>
+            </div>
+            <div style="padding:12px 14px;background:var(--color-accent-100);border-bottom:1px solid var(--color-neutral-300)">
+              <div style="font-size:13px;line-height:1.45">{{ task.reason }}</div>
+            </div>
+            <div style="padding:12px 14px;border-bottom:2px solid var(--color-divider);display:flex;gap:9px;align-items:flex-start">
+              <span style="width:4px;align-self:stretch;background:var(--color-accent)"></span>
+              <span style="font-size:13px;line-height:1.4">{{ task.warn }}</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isIdentify }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="padding:14px;border-bottom:1px solid var(--color-neutral-300)">
+              <div style="font-size:13px;line-height:1.45">Cab camera read the container ID on approach. Confirm it matches the instruction.</div>
+            </div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+              <div>
+                <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">Expected</div>
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:26px;font-variant-numeric:tabular-nums">{{ task.container }}</div>
+              </div>
+              <div>
+                <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600)">OCR read</div>
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:26px;font-variant-numeric:tabular-nums;color:{{ readColor }}">{{ ocrRead }}</div>
+              </div>
+              <div style="font-size:13px;line-height:1.45;color:{{ readColor }}">{{ readNote }}</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isException }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:13px;line-height:1.45">Mismatch blocked the lift. A supervisor-approved manual confirmation needs a photo and a reason code — both are written to the audit trail.</div>
+            <div style="display:flex;gap:6px">
+              <div style="flex:1;height:74px;background:var(--color-neutral-300);border:1px solid var(--color-neutral-500);display:flex;align-items:flex-end;padding:4px;font-size:10px">ID plate photo</div>
+              <div style="flex:1;height:74px;background:var(--color-neutral-300);border:1px solid var(--color-neutral-500);display:flex;align-items:flex-end;padding:4px;font-size:10px">Stack photo</div>
+            </div>
+            <div>
+              <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:5px">Reason code</div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <sc-for list="{{ reasonCodes }}" as="r" hint-placeholder-count="3">
+                  <button onClick="{{ r.onClick }}" style="text-align:left;padding:11px 12px;border:1px solid {{ r.border }};background:{{ r.bg }};color:{{ r.fg }};font-family:var(--font-body);font-size:13px;cursor:pointer">{{ r.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--color-neutral-700);line-height:1.45">{{ supervisorNote }}</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDamage }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:13px;line-height:1.45">Damage found on the right panel. Photos attach to the condition record; the container can be flipped to quarantine, which triggers a replan.</div>
+            <div style="display:flex;gap:6px">
+              <div style="flex:1;height:74px;background:var(--color-neutral-300);border:1px solid var(--color-neutral-500);display:flex;align-items:flex-end;padding:4px;font-size:10px">damage 1</div>
+              <div style="flex:1;height:74px;background:var(--color-neutral-300);border:1px solid var(--color-neutral-500);display:flex;align-items:flex-end;padding:4px;font-size:10px">damage 2</div>
+            </div>
+            <button onClick="{{ onQuarantine }}" style="text-align:left;padding:12px;border:1px solid var(--color-neutral-500);background:{{ quarantineBg }};color:{{ quarantineFg }};font-family:var(--font-body);font-size:13px;cursor:pointer">{{ quarantineLabel }}</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-family:var(--font-heading);font-weight:800;font-size:22px">Job cycle 4.9′</div>
+            <div style="font-size:13px;line-height:1.5">Accepted 06:19:20, confirmed 06:24:14. Actual duration written to the audit record against a 4.6′ estimate.</div>
+            <div style="border-top:1px solid var(--color-neutral-300);padding-top:10px;font-size:13px;line-height:1.5">Next: <strong>MV-1047 Pre-marshal</strong> at B-02-1-6-2 — resequenced 4 minutes ago by the RS-03 fault.</div>
+          </div>
+        </sc-if>
+
+        <div style="padding:12px 14px;border-top:2px solid var(--color-divider);display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary" onClick="{{ onPrimary }}" style="font-size:15px;padding:15px 14px;justify-content:flex-start">{{ primaryLabel }}</button>
+          <button class="btn btn-secondary" onClick="{{ onSecondary }}" style="font-size:14px;padding:13px 14px;justify-content:flex-start">{{ secondaryLabel }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;min-height:0;overflow:auto">
+      <div style="padding:12px 18px 8px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Flow · what the demo shows</div>
+      <sc-for list="{{ flow }}" as="f" hint-placeholder-count="5">
+        <button onClick="{{ f.onClick }}" style="display:block;width:100%;text-align:left;padding:11px 18px;border:0;border-bottom:1px solid var(--color-neutral-300);border-left:3px solid {{ f.mark }};background:{{ f.bg }};cursor:pointer;font-family:var(--font-body)" style-hover="background:var(--color-neutral-200)">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600"><span>{{ f.label }}</span><span style="font-size:11px;color:var(--color-neutral-600)">{{ f.tag }}</span></div>
+          <div style="font-size:11.5px;color:var(--color-neutral-700);margin-top:3px;line-height:1.45">{{ f.note }}</div>
+        </button>
+      </sc-for>
+      <div style="padding:12px 18px 8px;font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--color-neutral-600)">Audit written this task</div>
+      <sc-for list="{{ audit }}" as="a" hint-placeholder-count="5">
+        <div style="display:flex;gap:12px;padding:6px 18px;font-size:11.5px">
+          <span style="width:56px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums">{{ a.t }}</span>
+          <span style="flex:1;line-height:1.4">{{ a.what }}</span>
+        </div>
+      </sc-for>
+      <div style="padding:14px 18px 20px;font-size:11.5px;color:var(--color-neutral-700);line-height:1.55;max-width:60ch">Adoption is the pilot's hardest exit criterion: 95% of moves executed through the tablet rather than from memory. Bypass rate is reported to the supervisor dashboard daily.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const STEPS = [
+  { key: "instruction", title: "Retrieve to staging", tag: "1", label: "Instruction", note: "One instruction per view, large type for cab visibility." },
+  { key: "identify", title: "Confirm identity", tag: "2", label: "Identification", note: "Cab OCR read against the instruction — mismatch blocks the lift." },
+  { key: "exception", title: "Authorised exception", tag: "3", label: "Exception path", note: "Supervisor approval with photo and reason code, fully audited." },
+  { key: "damage", title: "Damage capture", tag: "4", label: "Damage", note: "Photos on the condition record; quarantine flip triggers a replan." },
+  { key: "done", title: "Confirm done", tag: "5", label: "Completion", note: "Actual duration recorded against the estimate." }
+];
+
+class Component extends DCLogic {
+  state = { data: null, step: 0, reason: null, quarantine: false, offline: false };
+
+  componentDidMount() { import("./yard-ops.js").then(d => this.setState({ data: d })); }
+
+  go(i) { this.setState({ step: Math.max(0, Math.min(STEPS.length - 1, i)) }); }
+
+  renderVals() {
+    const s = this.state;
+    const step = STEPS[s.step];
+    const task = (s.data && s.data.OPERATOR_TASKS[0]) || {};
+    const codes = ["Wrong container in slot", "ID plate unreadable", "Yard record out of date"];
+
+    const primary = {
+      instruction: ["Accept and start", () => this.go(1)],
+      identify: ["Report mismatch", () => this.go(2)],
+      exception: [s.reason ? "Submit for supervisor approval" : "Select a reason code", () => s.reason && this.go(3)],
+      damage: ["Attach and continue", () => this.go(4)],
+      done: ["Next task", () => this.go(0)]
+    }[step.key];
+    const secondary = {
+      instruction: ["Report a problem", () => this.go(2)],
+      identify: ["Confirm match", () => this.go(3)],
+      exception: ["Cancel and escalate", () => this.go(0)],
+      damage: ["No damage", () => this.go(4)],
+      done: ["View my queue", () => this.go(0)]
+    }[step.key];
+
+    return {
+      task,
+      onReset: () => this.setState({ step: 0, reason: null, quarantine: false }),
+      onOffline: () => this.setState({ offline: !s.offline }),
+      offlineLabel: s.offline ? "Offline — 3 queued" : "Simulate offline",
+      connLabel: s.offline ? "OFFLINE · queued 3" : "4G",
+      stepTitle: step.title,
+      isInstruction: step.key === "instruction",
+      isIdentify: step.key === "identify",
+      isException: step.key === "exception",
+      isDamage: step.key === "damage",
+      isDone: step.key === "done",
+      ocrRead: "MSCU4419370",
+      readColor: "var(--color-accent-700)",
+      readNote: "Mismatch: digits 8 and 9 transposed against the instruction. The lift is blocked until this resolves.",
+      reasonCodes: codes.map(c => ({
+        label: c,
+        bg: s.reason === c ? "var(--color-text)" : "transparent",
+        fg: s.reason === c ? "var(--color-bg)" : "var(--color-text)",
+        border: s.reason === c ? "var(--color-text)" : "var(--color-neutral-500)",
+        onClick: () => this.setState({ reason: c })
+      })),
+      supervisorNote: s.reason
+        ? "Approved by Yard Manager 06:22 — manual confirmation recorded against " + (task.id || "MV-1044") + " with two photos."
+        : "A reason code from the controlled list is mandatory; free text alone is not accepted.",
+      quarantineLabel: s.quarantine ? "Quarantine flagged — replan triggered" : "Flag for quarantine",
+      quarantineBg: s.quarantine ? "var(--color-accent)" : "transparent",
+      quarantineFg: s.quarantine ? "#fff" : "var(--color-text)",
+      onQuarantine: () => this.setState({ quarantine: !s.quarantine }),
+      primaryLabel: primary[0], onPrimary: primary[1],
+      secondaryLabel: secondary[0], onSecondary: secondary[1],
+      flow: STEPS.map((st, i) => ({
+        label: st.label, tag: st.tag, note: st.note,
+        bg: i === s.step ? "var(--color-accent-100)" : "transparent",
+        mark: i === s.step ? "var(--color-accent)" : "transparent",
+        onClick: () => this.go(i)
+      })),
+      audit: [
+        { t: "06:19:20", what: "Instruction accepted — job-cycle clock starts" },
+        { t: "06:20:05", what: "Cab OCR read MSCU4419370, mismatch against MSCU4419307" },
+        { t: "06:21:48", what: "Exception raised: " + (s.reason || "reason code pending") },
+        { t: "06:22:11", what: "Supervisor approval, 2 photos attached" },
+        { t: "06:24:14", what: "Confirm done — actual 4.9′ against 4.6′ estimate" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
