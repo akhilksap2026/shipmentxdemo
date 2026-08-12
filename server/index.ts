@@ -171,6 +171,153 @@ app.get('/api/capacity', async (_, res) => {
   res.json(rows)
 })
 
+// ── Write paths ───────────────────────────────────────────
+
+// POST /api/moves/:id/complete
+// Atomic move completion — server-side only, no client-supplied location data.
+// Validates: move exists, is in an executable state, destination address is parseable,
+// and the container is still at from_loc (guards against stale / conflicting moves).
+// Only this endpoint may transition a move to DONE; the generic PATCH route refuses DONE.
+app.post('/api/moves/:id/complete', async (req, res) => {
+  const { id } = req.params
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    // 1. Lock and read the move
+    const mv = await client.query(
+      `SELECT id, container_id, from_loc, to_loc, state
+       FROM moves WHERE id = $1 FOR UPDATE`,
+      [id]
+    )
+    if (!mv.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: `Move ${id} not found` })
+    }
+    const move = mv.rows[0] as {
+      id: string; container_id: string; from_loc: string; to_loc: string; state: string
+    }
+
+    // 2. State guard — only PLANNED / ASSIGNED / IN_PROGRESS may complete
+    if (move.state === 'DONE') {
+      await client.query('ROLLBACK')
+      return res.status(409).json({ error: `Move ${id} is already DONE` })
+    }
+    if (!['PLANNED', 'ASSIGNED', 'IN_PROGRESS'].includes(move.state)) {
+      await client.query('ROLLBACK')
+      return res.status(409).json({ error: `Move ${id} has state '${move.state}' and cannot be completed` })
+    }
+
+    // 3. Validate destination address format: "Z-BB-R-S-T" (5 dash-separated parts)
+    const destParts = move.to_loc.split('-')
+    if (destParts.length !== 5) {
+      await client.query('ROLLBACK')
+      return res.status(422).json({ error: `Move ${id} to_loc '${move.to_loc}' is not a valid address` })
+    }
+    const [zone, block, row, slot, tier] = [
+      destParts[0],
+      parseInt(destParts[1], 10),
+      parseInt(destParts[2], 10),
+      parseInt(destParts[3], 10),
+      parseInt(destParts[4], 10),
+    ]
+    if ([block, row, slot, tier].some(n => !Number.isInteger(n) || n < 1)) {
+      await client.query('ROLLBACK')
+      return res.status(422).json({ error: `Move ${id} to_loc '${move.to_loc}' has invalid numeric components` })
+    }
+
+    // 4. Lock container and verify it is still at from_loc (guards against stale/conflicting moves)
+    const cr = await client.query(
+      `SELECT id, address FROM containers WHERE id = $1 FOR UPDATE`,
+      [move.container_id]
+    )
+    if (!cr.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(422).json({ error: `Container ${move.container_id} not found — move rolled back` })
+    }
+    const container = cr.rows[0] as { id: string; address: string }
+    if (container.address !== move.from_loc) {
+      await client.query('ROLLBACK')
+      return res.status(409).json({
+        error: `Container ${move.container_id} is at '${container.address}', not '${move.from_loc}' — move is stale or already superseded`,
+      })
+    }
+
+    // 5. Mark move DONE
+    await client.query(`UPDATE moves SET state = 'DONE' WHERE id = $1`, [id])
+
+    // 6. Relocate container — rowCount guaranteed 1 (row was just locked above)
+    await client.query(
+      `UPDATE containers
+       SET zone_id = $1, block = $2, row_num = $3, slot = $4, tier = $5, address = $6
+       WHERE id = $7`,
+      [zone, block, row, slot, tier, move.to_loc, move.container_id]
+    )
+
+    await client.query('COMMIT')
+    res.json({ moveId: id, containerId: move.container_id, destination: move.to_loc, state: 'DONE' })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+})
+
+// PATCH /api/moves/:id  { state: 'PLANNED'|'ASSIGNED'|'IN_PROGRESS' }
+// NOTE: 'DONE' is intentionally excluded — use POST /api/moves/:id/complete instead,
+// which atomically relocates the container in the same transaction.
+app.patch('/api/moves/:id', async (req, res) => {
+  const { id } = req.params
+  const { state } = req.body
+  const VALID = ['PLANNED', 'ASSIGNED', 'IN_PROGRESS']
+  if (!state || !VALID.includes(state)) {
+    return res.status(400).json({ error: `state must be one of ${VALID.join(', ')} — use POST /api/moves/:id/complete to mark DONE` })
+  }
+  const { rows } = await pool.query(
+    `UPDATE moves SET state = $1 WHERE id = $2
+     RETURNING id, state`,
+    [state, id]
+  )
+  if (!rows.length) return res.status(404).json({ error: 'Move not found' })
+  res.json(rows[0])
+})
+
+// PATCH /api/containers/:id  { zone, block, row, slot, tier, address }
+app.patch('/api/containers/:id', async (req, res) => {
+  const { id } = req.params
+  const { zone, block, row, slot, tier, address } = req.body
+  if (!zone || block == null || row == null || slot == null || tier == null || !address) {
+    return res.status(400).json({ error: 'zone, block, row, slot, tier and address are required' })
+  }
+  const { rows } = await pool.query(
+    `UPDATE containers
+     SET zone_id = $1, block = $2, row_num = $3, slot = $4, tier = $5, address = $6
+     WHERE id = $7
+     RETURNING id, zone_id AS zone, block, row_num AS row, slot, tier, address`,
+    [zone, block, row, slot, tier, address, id]
+  )
+  if (!rows.length) return res.status(404).json({ error: 'Container not found' })
+  res.json(rows[0])
+})
+
+// POST /api/events  — record a new tower event
+app.post('/api/events', async (req, res) => {
+  const { id, time, type, severity, state, auto, title, detail, diff } = req.body
+  if (!id || !title) return res.status(400).json({ error: 'id and title are required' })
+  const { rows } = await pool.query(
+    `INSERT INTO events (id, time, type, severity, state, auto, title, detail, diff)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (id) DO NOTHING
+     RETURNING id`,
+    [id, time ?? new Date().toTimeString().slice(0, 5),
+     type ?? 'PLAN_PUBLISHED', severity ?? 'low',
+     state ?? 'replanned', auto ?? 'Auto',
+     title, detail ?? '', JSON.stringify(diff ?? {})]
+  )
+  res.status(201).json(rows[0] ?? { id })
+})
+
 // ── Health ────────────────────────────────────────────────
 app.get('/api/health', (_, res) => res.json({ ok: true }))
 

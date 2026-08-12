@@ -10,13 +10,21 @@ const STEPS = [
   { key:"done", title:"Confirm done", tag:"5", label:"Completion", note:"Actual duration recorded against the estimate." },
 ]
 
+/** Parse "Z-BB-R-S-T" address into its components */
+function parseAddress(addr: string) {
+  const p = addr.split("-")
+  return { zone: p[0], block: parseInt(p[1]), row: parseInt(p[2]), slot: parseInt(p[3]), tier: parseInt(p[4]) }
+}
+
 export default function OperatorTablet() {
-  const { operatorTasks } = useData()
+  const { operatorTasks, refresh } = useData()
 
   const [step, setStep] = useState(0)
   const [reason, setReason] = useState<string|null>(null)
   const [quarantine, setQuarantine] = useState(false)
   const [offline, setOffline] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [confirmError, setConfirmError] = useState<string|null>(null)
 
   const go = (i: number) => setStep(Math.max(0, Math.min(STEPS.length-1, i)))
   const current = STEPS[step]
@@ -25,12 +33,36 @@ export default function OperatorTablet() {
 
   if (!task) return null
 
+  async function confirmDone() {
+    setConfirming(true)
+    setConfirmError(null)
+    try {
+      // Server derives container ID and destination from the move record — client sends nothing extra
+      const res = await fetch(`/api/moves/${task.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: `Server error ${res.status}` }))
+        throw new Error((body as { error?: string }).error ?? `Server error ${res.status}`)
+      }
+      // Re-fetch both slices so every screen reflects the change
+      await refresh(["moves", "containers"])
+      go(0)
+    } catch (err) {
+      setConfirmError(String(err).replace("Error: ", ""))
+    } finally {
+      setConfirming(false)
+    }
+  }
+
   const primary: [string, ()=>void] = {
     instruction: ["Accept and start", ()=>go(1)],
     identify: ["Report mismatch", ()=>go(2)],
     exception: [reason?"Submit for supervisor approval":"Select a reason code", ()=>reason&&go(3)],
     damage: ["Attach and continue", ()=>go(4)],
-    done: ["Next task", ()=>go(0)],
+    done: [confirming ? "Saving…" : "Next task", confirmDone],
   }[current.key] as [string, ()=>void]
 
   const secondary: [string, ()=>void] = {
@@ -172,10 +204,17 @@ export default function OperatorTablet() {
               </div>
             )}
 
+            {/* Error banner — shown when confirmDone write fails */}
+            {confirmError && current.key === "done" && (
+              <div className="mx-3.5 mt-3 px-3 py-2.5 bg-red-50 border border-[#d9291c] text-[12px] text-[#9b1c1c] leading-snug">
+                <span className="font-bold">Save failed:</span> {confirmError}. Check connection and try again.
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="px-3.5 py-3 border-t-2 border-neutral-200 flex flex-col gap-2">
-              <button onClick={primary[1]}
-                className="w-full text-left px-3.5 py-[15px] bg-[#201e1d] text-white text-[15px] font-semibold">
+              <button onClick={primary[1]} disabled={confirming}
+                className="w-full text-left px-3.5 py-[15px] bg-[#201e1d] text-white text-[15px] font-semibold disabled:opacity-60">
                 {primary[0]}
               </button>
               <button onClick={secondary[1]}

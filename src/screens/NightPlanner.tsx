@@ -21,15 +21,52 @@ const WEIGHTS = [
 const HOURS = ["06","07","08","09","10","11","12","13"]
 
 export default function NightPlanner({ focus, onNavigate }: Props) {
-  const { moves, operators, assumptions, exceptions } = useData()
+  const { moves, operators, assumptions, exceptions, refresh } = useData()
 
   const [sel, setSel] = useState<string>(() => moves[8]?.id || "")
   const [tab, setTab] = useState("detail")
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState("ALL")
   const [published, setPublished] = useState(false)
+  const [publishing, setPublishing] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
   const [wRaw, setWRaw] = useState([40, 25, 20, 15])
+
+  async function handlePublish() {
+    if (published || publishing) return
+    setPublishing(true)
+    try {
+      const now = new Date()
+      const hh = String(now.getHours()).padStart(2, "0")
+      const mm = String(now.getMinutes()).padStart(2, "0")
+      const res = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: "EV-PUB-" + String(Date.now()).slice(-6),
+          time: `${hh}:${mm}`,
+          type: "PLAN_PUBLISHED",
+          severity: "low",
+          state: "replanned",
+          auto: "Manual",
+          title: `Plan P-2026-08-11 approved — ${moves.length} moves published`,
+          detail: `Yard Manager approved the night-before plan. ${moves.filter(m => m.frozen).length} moves frozen, ${moves.length} total sequenced across 3 reach stackers and 1 empty handler.`,
+          diff: { cancelled: 0, added: 0, reassigned: 0, frozenKept: moves.filter(m => m.frozen).length, deltaMin: 0, adherence: 0 },
+        }),
+      })
+      if (!res.ok) {
+        console.error("[NightPlanner] publish event write failed:", res.status)
+      } else {
+        await refresh(["events"])
+      }
+      setPublished(true)
+    } catch (err) {
+      console.error("[NightPlanner] publish event write failed:", err)
+      setPublished(true) // plan badge flips regardless; the event write is audit-only
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   // When DB data loads, fix the initial selection if it changed
   useEffect(() => {
@@ -110,7 +147,9 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
         <div className="ml-auto flex gap-2">
           <Button variant="ghost" size="sm" className="text-xs" onClick={() => setConfigOpen(true)}>Configure</Button>
           <Button variant="secondary" size="sm" className="text-xs" onClick={() => setPublished(false)}>Regenerate</Button>
-          <Button size="sm" className="text-xs" onClick={() => setPublished(true)}>{published ? "Published · view diff" : "Approve & publish"}</Button>
+          <Button size="sm" className="text-xs" onClick={handlePublish} disabled={publishing}>
+            {publishing ? "Publishing…" : published ? "Published · view diff" : "Approve & publish"}
+          </Button>
         </div>
       </div>
 

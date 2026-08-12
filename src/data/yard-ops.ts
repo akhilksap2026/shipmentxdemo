@@ -61,7 +61,7 @@ export const DIFF_ROWS = [
 ];
 
 export const OPERATOR_TASKS = [
-  { id:"MV-1044", seq:"07 of 24", type:"RETRIEVE TO STAGING", container:"MSCU4419307", from:"B-02-1-4-3", to:"S-01-1-2-1", weight:"24.8 t", size:"40HC", est:"4.6", reason:"LFD in 9 h — staged ahead of the 08:40 appointment.", warn:"Heavy unit: tier 3 at row 1 only. Check capacity chart before lift." }
+  { id:"MV-1028", seq:"07 of 24", type:"LOAD OUTBOUND", container:"HLXU4406052", from:"B-03-3-4-3", to:"S-01-1-2-1", weight:"27.8 t", size:"40GP", est:"4.6", reason:"Truck booked 08:15; container pre-staged at S-01-1-2-1, 15-min turn protected.", warn:"Heavy unit: 27.8 t — check capacity chart before lift. Tier 3 at row 1 only." }
 ];
 
 export const TURN_BY_HOUR = [
