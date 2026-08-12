@@ -1,0 +1,46 @@
+TASK: Add real gate transaction support to the Gate Console alongside the existing visit display.
+
+RULES:
+- DO NOT delete the existing Visits tab or Appointments tab.
+- ADD a new "Gate transactions" tab between them.
+- The existing tabs continue to work with seed data.
+
+STEP 1 — AUDIT: Read `src/screens/GateConsole.tsx` completely. Print:
+  a) Current tab structure
+  b) The Visits tab — what data it reads, what actions it supports
+  c) The check-in action — what API it calls, what state it updates
+  d) The Appointments tab — what data it reads
+
+STEP 2 — ADD a "Gate transactions" tab:
+
+2a) Transaction list:
+  - Fetch: backendApi.gateTransactions() on tab mount
+  - Group transactions by container_id to show pairs (IN + OUT)
+  - For each container's gate journey, show:
+    * Container number (resolve from backendContainers)
+    * Gate IN time (actual_arrival)
+    * Gate OUT time (actual_departure or "In yard")
+    * Turnaround: difference between OUT and IN, or elapsed since IN if still in yard
+    * Truck plate, driver ref, carrier ref
+  - Sort by most recent first
+
+2b) "Gate in" action:
+  - Button at the top of the tab
+  - Opens a form:
+    * Container picker (searchable select from backendContainers where status === "in_transit" or "yard")
+    * Truck plate input
+    * Driver ref input
+    * Carrier ref input
+  - Submit calls backendApi.createGateTransaction({ gate_type: "in", ... })
+  - Refreshes the transaction list
+
+2c) "Gate out" action:
+  - Appears as a button on each row where there's an IN transaction but no OUT
+  - Calls backendApi.createGateTransaction({ gate_type: "out", container_id: ... })
+  - Shows the computed turnaround time in a success toast
+
+STEP 3 — VERIFY:
+- Existing Visits and Appointments tabs work exactly as before.
+- New Gate transactions tab loads data from backend.
+- Gate in creates a record, gate out creates a record and shows turnaround.
+- If backend is down, the tab shows "Backend not available".

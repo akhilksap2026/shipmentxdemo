@@ -1,0 +1,56 @@
+TASK: Add three new tabs to the Settings screen for solver configuration, optimizer intelligence, and capacity forecasting.
+
+RULES:
+- DO NOT modify any existing Settings tabs.
+- ADD new tabs after the existing ones.
+- Each tab works independently — a failure in one doesn't affect others.
+
+STEP 1 — AUDIT: Read `src/screens/Settings.tsx` and print:
+  a) Current tab list and how tabs are implemented (state variable, render logic)
+  b) How to add a new tab without breaking existing tab switching
+
+STEP 2 — ADD three new tabs:
+
+TAB: "Solver config"
+  - Fetch: backendApi.getActiveSolverConfig() on tab mount
+  - Display each knob in two groups:
+    * "Search parameters": num_search_workers, candidate_k, portfolio_variant_count
+    * "Physical calibration": base_move_minutes, gate_bay, gate_row, max_travel_distance, jockey_speed_distance_divisor, detention_urgency_window_days, unplaced_penalty, score_scaling_factor, tier_multiplier
+  - Each knob: label, current value, editable input field
+  - "Save" button: calls backendApi.updateSolverConfig(changes)
+  - Show version number and source (manual/tuned)
+  - Read-only if backend is not connected
+
+TAB: "Optimizer"
+  - "Start optimization" section:
+    * Three preset buttons: Low (quick), Balanced, High (thorough)
+    * Each calls backendApi.startOptimizerRun({ level: "low"|"balanced"|"high" })
+  - "Active run" section (if a run is in progress):
+    * Poll backendApi.getOptimizerRun(id) every 3 seconds
+    * Show: status, trial progress (e.g. "Trial 12 of 30"), current best score
+    * "Cancel" button when running
+  - "Completed" section (when status === "completed"):
+    * Show best_knobs and best_score
+    * "Apply to live config" button: calls backendApi.applyOptimizerRun(id)
+    * Success toast when applied
+  - "Run history" section:
+    * Fetch backendApi.listOptimizerRuns()
+    * Table: run ID, status, total trials, best score, created_at, applied_at
+
+TAB: "Capacity forecast"
+  - Input fields: months slider (1-12, default 3), capacity number input (default from yard slot count)
+  - "Run forecast" button: calls backendApi.forecast(months, capacity)
+  - Chart (using recharts LineChart):
+    * X axis: day
+    * Y axis: projected_occupancy line (blue) + capacity line (red, flat)
+    * Shade the area where over_capacity === true in red
+    * Mark first_over_capacity_day with a vertical dashed line
+  - Below the chart: collapsible "Assumptions" section showing the assumptions object
+  - "Reset demo data" button: calls backendApi.resetSeed(), then refreshes all DataContext slices
+
+STEP 3 — VERIFY:
+- Existing Settings tabs (Plan weights, Integrations, Master data, Roles) unchanged.
+- New tabs render correctly when backend is connected.
+- New tabs show "Backend not available" when disconnected.
+- Forecast chart renders with correct data.
+- Optimizer polling works without memory leaks (cleanup on unmount).

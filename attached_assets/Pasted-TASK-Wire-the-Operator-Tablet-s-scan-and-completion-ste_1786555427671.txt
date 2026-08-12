@@ -1,0 +1,53 @@
+TASK: Wire the Operator Tablet's scan and completion steps to the real backend endpoints, keeping the existing UI flow intact.
+
+RULES:
+- DO NOT change the 5-step visual flow (Instruction → Identify → Exception → Damage → Done).
+- DO NOT remove the existing seed-based task display.
+- ADD real backend calls alongside — the flow should try backend first, fall back to the existing behavior.
+
+STEP 1 — AUDIT: Read `src/screens/OperatorTablet.tsx` completely. Print:
+  a) The 5 steps and what each step renders
+  b) How the current task is selected/loaded (where does OPERATOR_TASKS come from)
+  c) The "Done" step — what API call does it make, exactly what happens on success
+  d) The error handling — where are errors shown
+  e) How the screen cycles to the next task after completion
+  f) Every field the Instruction step reads from the task object
+
+STEP 2 — MODIFY OperatorTablet.tsx:
+
+2a) Add a "data source" detection at the top of the component:
+```typescript
+const { backendConnected, backendJockeys, backendSlots, backendContainers } = useData();
+```
+  - If backendConnected, the tablet fetches the next task from the backend
+  - If not, it falls back to the existing OPERATOR_TASKS seed data
+
+2b) Add jockey selection (only when backendConnected):
+  - Before showing the task flow, show a jockey picker
+  - List jockeys where status is "available" or "busy"
+  - Store selectedJockeyId in local state
+  - Once selected, fetch the next move: backendApi.nextMove(selectedJockeyId)
+
+2c) Wire the Identify step to the real scan endpoint:
+  - When the user enters/scans a container number, call backendApi.scanMove(moveId, scannedValue)
+  - If match === true: show green confirmation, advance to next step
+  - If match === false: show red alert "Scanned: {input} — Expected: {expected}", stay on step
+  - If backend is unreachable, fall back to the existing local comparison logic
+
+2d) Wire the Done step to the real complete endpoint:
+  - Call backendApi.completeMove(moveId)
+  - On success: show confirmation, then after 2 seconds poll backendApi.nextMove() for the next task
+  - On failure: show the error message in the existing error banner
+  - If backend is unreachable, fall back to the existing POST /api/moves/:id/complete call
+
+2e) Resolve move fields for display using backend-adapters:
+  - Use slotAddressById() to convert from_slot_id and to_slot_id to readable addresses
+  - Use container.container_number for display
+  - Use REASON_LABELS for the reason field
+
+STEP 3 — VERIFY:
+- With backend DOWN: the operator tablet works exactly as before with seed data.
+- With backend UP: selecting a jockey fetches the next move, scan validates against the backend, complete writes to the backend.
+- The 5-step visual flow is unchanged.
+- Error messages appear correctly when scan mismatches.
+- After completing a move, the next task loads automatically.

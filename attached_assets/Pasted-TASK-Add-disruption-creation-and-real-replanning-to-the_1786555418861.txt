@@ -1,0 +1,62 @@
+TASK: Add disruption creation and real replanning to the Control Tower, alongside the existing event display.
+
+RULES:
+- DO NOT delete the existing event list, diff table, severity badges, or filter chips.
+- DO NOT remove the seed events from the display.
+- ADD the disruption creation modal and replan result display on top of the existing UI.
+
+STEP 1 — AUDIT: Read `src/screens/ControlTower.tsx` completely. Print:
+  a) The event list — what fields each event row shows
+  b) The diff table — what columns it has, what data it reads
+  c) The metrics row at the top — what values it shows
+  d) The category filter chips — what categories exist
+  e) The acknowledgement toggle — how it works
+  f) Every imported module and every field it reads from useData()
+
+STEP 2 — ADD to ControlTower.tsx:
+
+2a) Add a "Simulate disruption" button in the top-right action area:
+  - Opens a modal/dialog with:
+    * Dropdown: event type selector with these options:
+      - "Truck accident" (truck_accident)
+      - "Ship delay" (ship_delay)
+      - "Inspection hold" (inspection_hold)
+      - "Out-of-sequence arrival" (out_of_sequence_arrival)
+      - "Jockey unavailable" (jockey_unavailable)
+    * Optional: container picker (searchable select from backendContainers)
+    * Optional: jockey picker (from backendJockeys, only shown when type is "jockey_unavailable")
+    * Text input: description
+    * "Inject disruption" submit button
+  - The modal only appears when backendConnected is true
+  - When not connected, the button shows a tooltip: "Requires backend connection"
+
+2b) When the submit button is clicked:
+  - Call createDisruption() from DataContext
+  - Show loading state on the button
+  - On success, the response includes triggered_replan_id
+  - If triggered_replan_id is not null:
+    * Fetch the new plan detail: backendApi.plan(triggered_replan_id)
+    * Also fetch the superseded plan (the one that was active before)
+    * Compute the diff using computePlanDiff() from backend-adapters
+    * Show a banner at the top: "Replan #{triggered_replan_id} generated — {diff.reassigned.length} reassigned, {diff.added.length} added, {diff.cancelled.length} cancelled"
+    * Populate the existing diff table with the computed diff
+
+2c) Add a "Backend events" section below the existing seed events section:
+  - Fetch disruptions from DataContext (use the disruptions from the backend if connected)
+  - Show each with: timestamp, type badge, description, and "→ Replan #{id}" link if triggered_replan_id exists
+  - The link navigates to the Night Planner with that plan loaded
+
+2d) Map backend disruption types to severity for display:
+  - truck_accident → high (red)
+  - jockey_unavailable → high (red)
+  - inspection_hold → medium (amber)
+  - ship_delay → medium (amber)
+  - out_of_sequence_arrival → low (blue)
+
+STEP 3 — VERIFY:
+- The existing seed event list still displays correctly.
+- The filter chips still work on seed events.
+- The "Simulate disruption" button only appears when backend is connected.
+- Creating a disruption produces a replan and shows the diff.
+- The diff table shows correct values (no undefined/NaN).
+- If backend is down, the entire Control Tower still works with seed data only.

@@ -369,7 +369,8 @@ app.patch('/api/lanes/:id', async (req, res) => {
 app.get('/api/health', (_, res) => res.json({ ok: true }))
 
 // ── Catch-all: serve index.html for client-side routing ───
-app.get('*', (_, res) => {
+// Express 5 dropped bare '*' — use a named wildcard instead
+app.get('/{*path}', (_, res) => {
   res.sendFile(path.join(distDir, 'index.html'))
 })
 

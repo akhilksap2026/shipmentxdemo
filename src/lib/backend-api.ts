@@ -95,6 +95,45 @@ export interface BackendGateTransaction {
   created_at: string;
 }
 
+// ─── Solver config ───────────────────────────────────────────────────
+export interface BackendSolverConfig {
+  id: number;
+  version: number;
+  source: "manual" | "tuned";
+  // Search parameters
+  num_search_workers: number;
+  candidate_k: number;
+  portfolio_variant_count: number;
+  // Physical calibration
+  base_move_minutes: number;
+  gate_bay: number;
+  gate_row: number;
+  max_travel_distance: number;
+  jockey_speed_distance_divisor: number;
+  detention_urgency_window_days: number;
+  unplaced_penalty: number;
+  score_scaling_factor: number;
+  tier_multiplier: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Optimizer runs ──────────────────────────────────────────────────
+export type OptimizerRunStatus = "pending" | "running" | "completed" | "cancelled" | "failed";
+export type OptimizerLevel = "low" | "balanced" | "high";
+
+export interface BackendOptimizerRun {
+  id: number;
+  level: OptimizerLevel;
+  status: OptimizerRunStatus;
+  total_trials: number;
+  completed_trials: number;
+  best_score: number | null;
+  best_knobs: Partial<BackendSolverConfig> | null;
+  created_at: string;
+  applied_at: string | null;
+}
+
 // ─── API functions ───────────────────────────────────────────────────
 
 export const backendApi = {
@@ -160,4 +199,17 @@ export const backendApi = {
   // Seed reset (demo)
   resetSeed: (randomize = false) =>
     request<{ status: string }>(`/seed/reset?randomize=${randomize}`, { method: "POST" }),
+
+  // Solver config
+  getActiveSolverConfig: () => request<BackendSolverConfig>("/solver-config/active"),
+  updateSolverConfig: (changes: Partial<BackendSolverConfig>) =>
+    request<BackendSolverConfig>("/solver-config/active", { method: "PATCH", body: JSON.stringify(changes) }),
+
+  // Optimizer runs
+  startOptimizerRun: (body: { level: OptimizerLevel }) =>
+    request<BackendOptimizerRun>("/optimizer/runs", { method: "POST", body: JSON.stringify(body) }),
+  getOptimizerRun: (id: number) => request<BackendOptimizerRun>(`/optimizer/runs/${id}`),
+  listOptimizerRuns: () => request<BackendOptimizerRun[]>("/optimizer/runs"),
+  applyOptimizerRun: (id: number) =>
+    request<{ status: string; config: BackendSolverConfig }>(`/optimizer/runs/${id}/apply`, { method: "POST" }),
 };

@@ -1,0 +1,47 @@
+TASK: Add backend yard slot data as an alternative data source for the Yard Map, alongside the existing seed zone display.
+
+RULES:
+- DO NOT delete the existing ZoomableBlockGrid, zone list, or container detail panel.
+- ADD a data source toggle, similar to Prompt 2's approach.
+- The existing seed visualization stays as the default.
+
+STEP 1 — AUDIT: Read `src/screens/YardMap.tsx` completely. Print:
+  a) How zones are listed in the left panel (what data source, what fields)
+  b) How the block grid is rendered (SVG structure, what data drives it)
+  c) How slot selection works (click handler, what state it sets)
+  d) The container detail panel — what fields it shows, where the data comes from
+  e) The overlay toggles — what overlays exist, how they change the color coding
+  f) The Dashboard tab — what charts it shows, what data drives them
+
+STEP 2 — ADD to YardMap.tsx:
+
+2a) Add a "Data source" toggle: "Seed data" / "Live yard"
+
+2b) When "Live yard" is selected:
+  - Read backendSlots and backendContainers from DataContext
+  - Group slots by block to build the zone list:
+    * For each unique block code, count total slots and occupied slots (occupied_container_id not null)
+    * Show occupancy as a percentage bar
+    * Highlight hazmat blocks (blocks where any slot has is_hazmat_approved)
+  - When a block is selected:
+    * Filter slots to that block
+    * Determine the grid dimensions: max(bay) × max(row), with tier as the stack height
+    * Render the grid using the existing SVG grid pattern but with backend slot data
+    * Color each cell: occupied = primary color, empty = background, hazmat = orange
+
+2c) When a slot with occupied_container_id is clicked:
+  - Find the container in backendContainers
+  - Show its details: container_number, size_ft, status, is_hazmat, damage_status, detention_expiry
+  - Compute hours to detention from detention_expiry
+  - If order is needed, note that fetching order detail requires backendApi.container(id) — add a "Load details" button that fetches the full ContainerDetailOut
+
+2d) For the Dashboard tab in "Live yard" mode:
+  - Replace static CAPACITY data with a "Load forecast" button that calls backendApi.forecast(3)
+  - Show the result in the existing chart format
+
+STEP 3 — VERIFY:
+- "Seed data" mode works EXACTLY as before.
+- "Live yard" mode shows correct occupancy from backend slots.
+- Clicking a slot shows the correct container.
+- If backend is down, "Live yard" shows "Backend unavailable" and stays on seed data.
+- The overlay toggles still work in seed mode.
