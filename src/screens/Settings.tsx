@@ -133,9 +133,15 @@ export default function SettingsScreen() {
             <tbody>
               {ADAPTERS.map(a=>(
                 <tr key={a.name} className="border-b border-neutral-200"
-                  style={{borderLeft:`3px solid ${a.state==="DEGRADED"?"#f59e0b":"transparent"}`}}>
+                  style={{
+                    borderLeft: `3px solid ${a.state==="DEGRADED"?"#f59e0b":"transparent"}`,
+                    opacity: a.state==="PENDING"||a.state==="PHASE 2" ? 0.55 : 1,
+                  }}>
                   <td className="py-2.5 pl-5 pr-3 font-semibold">
                     {a.name}
+                    {(a.state==="PENDING"||a.state==="PHASE 2") && (
+                      <span className="ml-2 text-[9px] tracking-widest uppercase text-neutral-400 font-normal italic">roadmap</span>
+                    )}
                     <div className="text-[11px] font-normal text-neutral-500">{a.mechanism}</div>
                   </td>
                   <td className="px-3 py-2.5">

@@ -58,19 +58,19 @@ export default function OperatorTablet() {
   }
 
   const primary: [string, ()=>void] = {
-    instruction: ["Accept and start", ()=>go(1)],
-    identify: ["Report mismatch", ()=>go(2)],
-    exception: [reason?"Submit for supervisor approval":"Select a reason code", ()=>reason&&go(3)],
-    damage: ["Attach and continue", ()=>go(4)],
-    done: [confirming ? "Saving…" : "Next task", confirmDone],
+    instruction: ["Accept and start",                                             ()=>go(1)],
+    identify:    ["Report mismatch",                                              ()=>go(2)],
+    exception:   [reason ? "Submit for supervisor approval" : "Select a reason code", ()=>reason && go(3)],
+    damage:      ["Attach and continue",                                          ()=>go(4)],
+    done:        [confirming ? "Saving…" : "Next task",                           confirmDone],
   }[current.key] as [string, ()=>void]
 
   const secondary: [string, ()=>void] = {
-    instruction: ["Report a problem", ()=>go(2)],
-    identify: ["Confirm match", ()=>go(3)],
-    exception: ["Cancel and escalate", ()=>go(0)],
-    damage: ["No damage", ()=>go(4)],
-    done: ["View my queue", ()=>go(0)],
+    instruction: ["Report a problem",    ()=>go(2)],
+    identify:    ["Confirm match",        ()=>go(3)],
+    exception:   ["Cancel and escalate", ()=>{ setReason(null); go(0) }],
+    damage:      ["No damage",            ()=>go(4)],
+    done:        ["View my queue",        ()=>go(0)],
   }[current.key] as [string, ()=>void]
 
   return (
@@ -147,16 +147,16 @@ export default function OperatorTablet() {
                   </div>
                   <div>
                     <div className="text-[11px] tracking-widest uppercase text-neutral-500">OCR read</div>
-                    <div className="font-black text-[26px] tabular text-[#d9291c]">MSCU4419370</div>
+                    <div className="font-black text-[26px] tabular text-[#d9291c]">HLXU4406025</div>
                   </div>
-                  <div className="text-[13px] leading-relaxed text-[#d9291c]">Mismatch: digits 8 and 9 transposed against the instruction. The lift is blocked until this resolves.</div>
+                  <div className="text-[13px] leading-relaxed text-[#d9291c]">Mismatch: last two digits transposed (025 vs 052) against the instruction. The lift is blocked until this resolves.</div>
                 </div>
               </div>
             )}
 
             {current.key==="exception" && (
               <div className="px-3.5 py-3.5 flex flex-col gap-3">
-                <div className="text-[13px] leading-relaxed">Mismatch blocked the lift. A supervisor-approved manual confirmation needs a photo and a reason code — both are written to the audit trail.</div>
+                <div className="text-[13px] leading-relaxed">Mismatch blocked the lift. A supervisor-approved manual confirmation needs a photo and a reason code — both are written to the audit trail for {task.container}.</div>
                 <div className="flex gap-1.5">
                   <div className="flex-1 h-[74px] bg-neutral-200 border border-neutral-400 flex items-end p-1 text-[10px] text-neutral-600">ID plate photo</div>
                   <div className="flex-1 h-[74px] bg-neutral-200 border border-neutral-400 flex items-end p-1 text-[10px] text-neutral-600">Stack photo</div>
@@ -200,7 +200,7 @@ export default function OperatorTablet() {
               <div className="px-3.5 py-3.5 flex flex-col gap-2.5">
                 <div className="font-black text-[22px]">Job cycle 4.9′</div>
                 <div className="text-[13px] leading-relaxed">Accepted 06:19:20, confirmed 06:24:14. Actual duration written to the audit record against a {task.est}′ estimate.</div>
-                <div className="border-t border-neutral-200 pt-2.5 text-[13px] leading-relaxed">Next: <strong>MV-1047 Pre-marshal</strong> at B-02-1-6-2 — resequenced 4 minutes ago by the RS-03 fault.</div>
+                <div className="border-t border-neutral-200 pt-2.5 text-[13px] leading-relaxed">Next task will be dispatched to your queue by the planner — check the tablet in 30 seconds.</div>
               </div>
             )}
 
@@ -213,8 +213,9 @@ export default function OperatorTablet() {
 
             {/* Action buttons */}
             <div className="px-3.5 py-3 border-t-2 border-neutral-200 flex flex-col gap-2">
-              <button onClick={primary[1]} disabled={confirming}
-                className="w-full text-left px-3.5 py-[15px] bg-[#201e1d] text-white text-[15px] font-semibold disabled:opacity-60">
+              <button onClick={primary[1]}
+                disabled={confirming || (current.key === "exception" && !reason)}
+                className="w-full text-left px-3.5 py-[15px] bg-[#201e1d] text-white text-[15px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
                 {primary[0]}
               </button>
               <button onClick={secondary[1]}
@@ -242,7 +243,7 @@ export default function OperatorTablet() {
           <div className="px-4 pt-3 pb-2 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Audit written this task</div>
           {[
             {t:"06:19:20",what:"Instruction accepted — job-cycle clock starts"},
-            {t:"06:20:05",what:"Cab OCR read MSCU4419370, mismatch against "+task.container},
+            {t:"06:20:05",what:"Cab OCR read HLXU4406025, mismatch against "+task.container},
             {t:"06:21:48",what:"Exception raised: "+(reason||"reason code pending")},
             {t:"06:22:11",what:"Supervisor approval, 2 photos attached"},
             {t:"06:24:14",what:"Confirm done — actual 4.9′ against "+task.est+"′ estimate"},

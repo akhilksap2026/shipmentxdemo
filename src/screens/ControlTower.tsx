@@ -14,13 +14,17 @@ const CATS: Record<string, string> = {
 export default function ControlTower({ focus }: Props) {
   const { events, diffRows } = useData()
 
-  const [sel, setSel] = useState("EV-7741")
-  const [cat, setCat] = useState("ALL")
-  const [acked, setAcked] = useState(false)
+  const [sel,   setSel]   = useState("")
+  const [cat,   setCat]   = useState("ALL")
+  const [acked, setAcked] = useState<Set<string>>(new Set())
+
+  // Initialise selection to the first event once data loads
+  useEffect(() => {
+    if (!sel && events.length > 0) setSel(events[0].id)
+  }, [events, sel])
 
   useEffect(() => {
     if (!focus) return
-    // Match by event ID first (e.g. "EV-7741"), then fall back to title/detail substring
     const e = events.find(x => x.id === focus)
       || events.find(x => x.title.includes(focus) || x.detail.includes(focus))
     if (e) setSel(e.id)
@@ -30,10 +34,13 @@ export default function ControlTower({ focus }: Props) {
   const filtered = events.filter(e => cat==="ALL" || CATS[e.type]===cat)
   const selEvent = filtered.find(e => e.id===sel) || events.find(e => e.id===sel) || filtered[0] || events[0]
 
+  const ackedEvent = selEvent ? acked.has(selEvent.id) : false
+  const awaitingCount = events.filter(e => e.state === "awaiting" && !acked.has(e.id)).length
+
   function stateLine(e: Event) {
-    if (e.state==="replanned") return "Replanned · "+e.auto
-    if (e.state==="suppressed") return "Suppressed by stability rules"
-    return acked?"Acknowledged":"Awaiting acknowledgement"
+    if (e.state === "replanned")  return "Replanned · " + e.auto
+    if (e.state === "suppressed") return "Suppressed by stability rules"
+    return acked.has(e.id) ? "Acknowledged" : "Awaiting acknowledgement"
   }
 
   if (!selEvent) return null
@@ -47,8 +54,10 @@ export default function ControlTower({ focus }: Props) {
           <span className="text-[11px] text-neutral-500">Every event that matters — equipment, customs, detention, appointments, yard audit — with the replan diff attached</span>
         </div>
         <div className="ml-auto">
-          <Button size="sm" className="text-xs" onClick={()=>setAcked(true)}>
-            {acked?"Acknowledged":"Acknowledge selected event"}
+          <Button size="sm" className="text-xs"
+            onClick={() => selEvent && setAcked(prev => new Set(prev).add(selEvent.id))}
+            disabled={ackedEvent}>
+            {ackedEvent ? "Acknowledged" : "Acknowledge selected event"}
           </Button>
         </div>
       </div>
@@ -60,7 +69,7 @@ export default function ControlTower({ focus }: Props) {
           {k:"Replans accepted",v:"5",sub:"1 suppressed"},
           {k:"Stability index",v:"0.31",sub:"cap 0.40"},
           {k:"Plan adherence",v:"89%",sub:"target ≥85%"},
-          {k:"Awaiting acknowledgement",v:acked?"0":"1",sub:"EV-7745",red:!acked},
+          {k:"Awaiting acknowledgement",v:String(awaitingCount),sub:awaitingCount>0?"needs attention":"all clear",red:awaitingCount>0},
         ].map(m=>(
           <div key={m.k} className="flex-1 basis-36 px-5 py-2.5 border-r border-neutral-200 flex flex-col gap-0.5">
             <span className="text-[10px] tracking-widest uppercase text-neutral-500">{m.k}</span>
@@ -89,7 +98,7 @@ export default function ControlTower({ focus }: Props) {
           {filtered.map(e=>(
             <button key={e.id} onClick={()=>setSel(e.id)}
               className="block w-full text-left px-4 py-3 border-b border-neutral-200 hover:bg-neutral-50 transition-colors"
-              style={{ borderLeft:`3px solid ${e.id===sel?"#d9291c":e.state==="awaiting"&&!acked?"#f59e0b":"transparent"}`, background:e.id===sel?"#fef3f2":undefined }}>
+              style={{ borderLeft:`3px solid ${e.id===sel?"#d9291c":e.state==="awaiting"&&!acked.has(e.id)?"#f59e0b":"transparent"}`, background:e.id===sel?"#fef3f2":undefined }}>
               <div className="flex justify-between gap-2 text-[10px] tracking-wider font-bold">
                 <span style={{color:e.severity==="high"?"#d9291c":"#6b7280"}}>{CATS[e.type]||e.type}</span>
                 <span className="text-neutral-500 tabular">{e.time}</span>

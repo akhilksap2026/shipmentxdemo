@@ -318,6 +318,45 @@ app.post('/api/events', async (req, res) => {
   res.status(201).json(rows[0] ?? { id })
 })
 
+// PATCH /api/visits/:id  — update visit state / times / lane assignment
+app.patch('/api/visits/:id', async (req, res) => {
+  const { id } = req.params
+  const { state, check_in, at_position, served, gate_out, lane_id } = req.body
+  const { rows } = await pool.query(
+    `UPDATE visits
+     SET state       = COALESCE($1, state),
+         check_in    = COALESCE($2, check_in),
+         at_position = COALESCE($3, at_position),
+         served      = COALESCE($4, served),
+         gate_out    = COALESCE($5, gate_out),
+         lane_id     = COALESCE($6, lane_id)
+     WHERE id = $7
+     RETURNING id, state, check_in AS "checkIn", at_position AS "atPosition",
+               served, gate_out AS "gateOut", lane_id AS lane`,
+    [state ?? null, check_in ?? null, at_position ?? null,
+     served ?? null, gate_out ?? null, lane_id ?? null, id]
+  )
+  if (!rows.length) return res.status(404).json({ error: 'Visit not found' })
+  res.json(rows[0])
+})
+
+// PATCH /api/lanes/:id  — update lane occupancy
+app.patch('/api/lanes/:id', async (req, res) => {
+  const { id } = req.params
+  const { state, visit_id, since } = req.body
+  const { rows } = await pool.query(
+    `UPDATE lanes
+     SET state    = COALESCE($1, state),
+         visit_id = COALESCE($2, visit_id),
+         since    = COALESCE($3, since)
+     WHERE id = $4
+     RETURNING id, state, visit_id AS visit, since`,
+    [state ?? null, visit_id ?? null, since ?? null, id]
+  )
+  if (!rows.length) return res.status(404).json({ error: 'Lane not found' })
+  res.json(rows[0])
+})
+
 // ── Health ────────────────────────────────────────────────
 app.get('/api/health', (_, res) => res.json({ ok: true }))
 
