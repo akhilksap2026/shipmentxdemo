@@ -1,0 +1,145 @@
+PART 2 PROMPT: BLOCK INTERIOR + INTERNAL SEGREGATION + DRILL TO SLOT
+Read the current state of src/screens/YardMap.tsx and src/components/yard/PhysicalYardMap.tsx after Part 1. Then implement the following.
+Step 1: Add internal segregation data
+Create src/data/block-segregation.ts:
+export interface SegregationZone {
+bayStart: number
+bayEnd: number
+type: string
+tint: string // CSS background color
+}
+export const BLOCK_SEGREGATION: Record<string, SegregationZone[]> = {
+"A-01": [
+{ bayStart: 1, bayEnd: 2, type: "Reefer", tint: "#dbeafe" },
+{ bayStart: 3, bayEnd: 8, type: "Dry Import", tint: "transparent" },
+{ bayStart: 9, bayEnd: 10, type: "Outbound Staging", tint: "#fef3c7" },
+],
+"A-02": [
+{ bayStart: 1, bayEnd: 10, type: "Dry Import", tint: "transparent" },
+],
+"A-03": [
+{ bayStart: 1, bayEnd: 3, type: "Reefer", tint: "#dbeafe" },
+{ bayStart: 4, bayEnd: 10, type: "Dry Import", tint: "transparent" },
+],
+"B-01": [
+{ bayStart: 1, bayEnd: 5, type: "Dry Import", tint: "transparent" },
+{ bayStart: 6, bayEnd: 8, type: "Customs Hold", tint: "#f3e8ff" },
+{ bayStart: 9, bayEnd: 10, type: "Inspection", tint: "#ffedd5" },
+],
+"B-02": [
+{ bayStart: 1, bayEnd: 10, type: "Dry Import", tint: "transparent" },
+],
+"C-01": [
+{ bayStart: 1, bayEnd: 8, type: "Customs Controlled", tint: "#f3e8ff" },
+],
+"C-02": [
+{ bayStart: 1, bayEnd: 8, type: "Customs Controlled", tint: "#f3e8ff" },
+],
+"D-01": [
+{ bayStart: 1, bayEnd: 6, type: "Hazmat IMDG", tint: "#ffedd5" },
+],
+"D-02": [
+{ bayStart: 1, bayEnd: 6, type: "Hazmat IMDG", tint: "#ffedd5" },
+],
+"E-01": [
+{ bayStart: 1, bayEnd: 10, type: "Empties", tint: "#ecfccb" },
+],
+"E-02": [
+{ bayStart: 1, bayEnd: 10, type: "Empties", tint: "#ecfccb" },
+],
+"E-03": [
+{ bayStart: 1, bayEnd: 5, type: "Empties", tint: "#ecfccb" },
+{ bayStart: 6, bayEnd: 10, type: "Damaged / Repair", tint: "#fee2e2" },
+],
+"S-01": [
+{ bayStart: 1, bayEnd: 10, type: "Outbound Staging", tint: "#fef3c7" },
+],
+"R-01": [
+{ bayStart: 1, bayEnd: 12, type: "Receiving Lane", tint: "#f3f4f6" },
+],
+}
+Add a helper:
+export function getSegregation(blockLabel: string): SegregationZone[] {
+return BLOCK_SEGREGATION[blockLabel] ?? [{ bayStart: 1, bayEnd: 99, type: "General", tint: "transparent" }]
+}
+Step 2: Add zoom level state to YardMap
+In src/screens/YardMap.tsx, add:
+type ZoomLevel = "yard" | "block" | "slot"
+const [zoomLevel, setZoomLevel] = useState<ZoomLevel>
+When zoomLevel is "yard", show PhysicalYardMap.
+When zoomLevel is "block", show BlockInteriorView.
+When zoomLevel is "slot", show SlotStackView.
+Step 3: Create BlockInteriorView component
+Create src/components/yard/BlockInteriorView.tsx:
+This component shows a single block's interior layout:
+Header: Block label, zone name, back button ("← Yard"), occupancy, segregation legend
+Main area: A grid where columns = bays, rows = rows within the block
+Each cell = one (bay, row) slot, showing a vertical stack bar of occupied tiers
+The slot background has segregation tint from BLOCK_SEGREGATION
+Each slot cell is clickable (drills to slot level)
+Stack bar visualization:
+A vertical bar inside each slot cell
+Height = (containers in this slot / maxTiers) * cell height
+Color = based on selected color mode (status, LFD, priority, etc.)
+If multiple containers in slot, the bar shows the top container's color
+Add a small number showing the stack height (e.g., "3/4")
+Segregation overlay:
+Behind the slot grid, render colored rectangles spanning the bay range of each segregation zone
+Label each zone with its type (small text at top of zone)
+Use the tint colors from BLOCK_SEGREGATION
+Slot cell design:
+Width: 56px min
+Height: 48px min
+Border: 1px solid #d1d5db
+Hover: border-color changes to #dc2626, cursor = pointer
+Selected: 2px solid #dc2626, box-shadow
+Add a breadcrumb:
+"Yard > Zone A > Block A-01"
+Each segment is clickable to navigate up.
+Step 4: Create SlotStackView component
+Create src/components/yard/SlotStackView.tsx:
+This shows a single slot (bay, row) with all containers stacked by tier:
+Header: Slot address (e.g., "A-01-3-2"), back button ("← Block A-01"), zone name
+Main area: Vertical stack of container cards, one per tier
+Tier 4 at top, Tier 1 at bottom
+Each card shows: container ID, size, status, LFD, priority, consignee
+Color-coded left border based on selected color mode
+If empty tier, show "Empty" with dashed border
+Right side panel: Full container detail for selected tier
+All container fields from the data model
+"Why here" explanation
+Move history (hardcoded 4 entries for seed, or from backend)
+Navigation links: "View in plan", "View in tower", "View in gate"
+Add a breadcrumb:
+"Yard > Zone A > Block A-01 > Bay 3 / Row 2 > Slot 3-2"
+Each segment clickable.
+Step 5: Wire zoom transitions in YardMap
+In YardMap.tsx:
+When a block is clicked in PhysicalYardMap: setZoomLevel("block"), setSelectedBlockLabel(label)
+When "View interior" is clicked in the block floating panel: same as above
+When a slot is clicked in BlockInteriorView: setZoomLevel("slot"), setSelectedSlot({zone, block, row, slot})
+When back button clicked: go up one zoom level
+Animate transitions: use CSS transition on opacity and transform for 200ms
+Step 6: Add color mode support to block and slot views
+The color mode selection in the toolbar must now apply to ALL zoom levels:
+In BlockInteriorView: slot stack bar color uses containerColor()
+In SlotStackView: container card border color uses containerColor()
+Add a new "priority" color mode (P1=red, P2=orange, P3=blue, P4=gray)
+Add a new "rehandle" color mode (0 rehandles=green, 1=yellow, 2+=red)
+For live mode: map backend container fields to the same color logic.
+Step 7: Replace the existing live yard map
+Replace the old live-mode 3-column layout (with the live block list, live front view, etc.) with the same PhysicalYardMap + BlockInteriorView + SlotStackView system. The only difference is:
+In live mode, blocks are positioned by the backend yard layout
+Container data comes from backendContainers + backendSlots
+Use the same zoom level state machine
+Step 8: Add search at all zoom levels
+At yard level: search highlights matching blocks (border pulse)
+At block level: search filters the slot grid to show only slots with matching containers
+At slot level: search highlights matching container cards
+Update the search input to be visible at all zoom levels in map view.
+Step 9: Run npm run build to verify.
+Rules:
+Keep the dashboard view completely unchanged.
+Keep the toolbar structure unchanged (add zoom level breadcrumb to toolbar if space allows).
+All existing data source toggle behavior preserved.
+The 3-column layout from Part 1's floating panel is now replaced by the zoom level system.

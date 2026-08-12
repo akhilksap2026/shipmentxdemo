@@ -76,6 +76,64 @@ export function computeBlockLayouts(
   return layouts
 }
 
+/** Compute BlockLayouts from live backend block summaries.
+ *  Parses zone letter from block ID (e.g. "A" from "A-01") and uses
+ *  the matching Zone definition for physical dimensions.
+ */
+export function computeLiveBlockLayouts(
+  liveBlocks: Array<{ blk: string; occupied: number; total: number; pct: number }>,
+  zones: Zone[],
+): BlockLayout[] {
+  const byZone = new Map<string, typeof liveBlocks>()
+  for (const b of liveBlocks) {
+    const zoneId = b.blk[0] ?? "?"
+    if (!byZone.has(zoneId)) byZone.set(zoneId, [])
+    byZone.get(zoneId)!.push(b)
+  }
+
+  const layouts: BlockLayout[] = []
+  let currentY = 32
+
+  const sortedZoneIds = Array.from(byZone.keys()).sort(
+    (a, b) => zoneOrder(a) - zoneOrder(b),
+  )
+
+  for (const zoneId of sortedZoneIds) {
+    const zone = zones.find(z => z.id === zoneId)
+    const slots    = zone?.slots    ?? 10
+    const rows     = zone?.rows     ?? 3
+    const maxTiers = zone?.maxTiers ?? 4
+
+    const blockW = slots * SLOT_WIDTH_PX
+    const blockH = rows  * ROW_HEIGHT_PX
+    const blocksPerRow = Math.max(
+      1,
+      Math.floor((YARD_WIDTH - LANE_WIDTH_PX) / (blockW + BLOCK_MARGIN_PX)),
+    )
+
+    const zoneBlocks = byZone.get(zoneId)!
+    zoneBlocks.forEach((b, idx) => {
+      const rowInZone = Math.floor(idx / blocksPerRow)
+      const colInRow  = idx % blocksPerRow
+      const x = LANE_WIDTH_PX + colInRow * (blockW + BLOCK_MARGIN_PX)
+      const y = currentY + rowInZone * (blockH + LANE_WIDTH_PX)
+      const capacity = rows * slots * maxTiers
+
+      layouts.push({
+        zone: zoneId, block: idx + 1, label: b.blk,
+        x, y, w: blockW, h: blockH,
+        occupancyPct: b.pct, containerCount: b.occupied,
+        capacity, topContainerIds: [],
+      })
+    })
+
+    const rowsNeeded = Math.ceil(zoneBlocks.length / blocksPerRow)
+    currentY += rowsNeeded * (blockH + LANE_WIDTH_PX) + LANE_WIDTH_PX
+  }
+
+  return layouts
+}
+
 export function getYardDimensions(
   layouts: BlockLayout[],
 ): { width: number; height: number } {
