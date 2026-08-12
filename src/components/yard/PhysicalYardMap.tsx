@@ -215,7 +215,7 @@ export default function PhysicalYardMap({
             >
               {/* Zone header label */}
               <div
-                className="absolute top-0 left-0 flex items-center gap-2 px-3"
+                className="absolute top-0 left-0 flex items-center gap-3 px-4"
                 style={{
                   height: PANEL_PAD_TOP - 4,
                   background: panel.headerBg,
@@ -224,8 +224,8 @@ export default function PhysicalYardMap({
                   width: "100%",
                 }}
               >
-                <span className="font-black text-[11px] tracking-wider">{name}</span>
-                <span className="text-[9px] opacity-70 font-medium tracking-wide">{sub}</span>
+                <span className="font-black tracking-wider" style={{ fontSize: 16 }}>{name}</span>
+                <span className="opacity-70 font-semibold tracking-wide" style={{ fontSize: 12 }}>{sub}</span>
               </div>
             </div>
           )
@@ -285,48 +285,47 @@ export default function PhysicalYardMap({
             >
               {heatTint && <div className="absolute inset-0 pointer-events-none rounded" style={{ background: heatTint }} />}
 
-              {/* Block label */}
+              {/* Block label — large, same weight as page title */}
               <div className="absolute font-black tracking-wider leading-none"
-                style={{ top: 4, left: 5, fontSize: 10, color: "#374151" }}>
+                style={{ top: 7, left: 8, fontSize: 18, color: "#1e293b" }}>
                 {layout.label}
               </div>
 
               {/* Congestion % */}
               {showCongestion && congestion > 0.25 && (
                 <div className="absolute leading-none font-bold"
-                  style={{ top: 4, right: 5, fontSize: 9, color: "#dc2626" }}>
+                  style={{ top: 8, right: 8, fontSize: 14, color: "#dc2626" }}>
                   {Math.round(congestion * 100)}%
                 </div>
               )}
 
               {/* Occupancy fill bar — left side vertical */}
-              <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l" style={{ background: "rgba(255,255,255,0.4)" }}>
+              <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l" style={{ background: "rgba(255,255,255,0.4)" }}>
                 <div
                   className="absolute bottom-0 left-0 right-0 rounded-l"
                   style={{ height: `${layout.occupancyPct}%`, background: barColor }}
                 />
               </div>
 
-              {/* Container count badge */}
+              {/* Container count + occupancy */}
               <div
-                className="absolute font-semibold tabular leading-none"
-                style={{ bottom: 5, left: 8, fontSize: 11, color: "#374151" }}
+                className="absolute font-bold tabular leading-none"
+                style={{ bottom: 8, left: 10, fontSize: 15, color: "#374151" }}
               >
                 {layout.containerCount}
-                <span className="text-[9px] text-neutral-400 ml-0.5">/ {layout.capacity}</span>
+                <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: 3 }}>/ {layout.capacity}</span>
               </div>
 
-              {/* Occupancy % */}
-              <div className="absolute font-semibold leading-none"
-                style={{ bottom: 5, right: 5, fontSize: 10, color: barColor }}>
+              <div className="absolute font-bold leading-none"
+                style={{ bottom: 8, right: 8, fontSize: 15, color: barColor }}>
                 {layout.occupancyPct}%
               </div>
 
-              {/* Top container IDs (faint) */}
+              {/* Top container ID preview */}
               {layout.topContainerIds.length > 0 && (
                 <div
                   className="absolute font-mono truncate leading-none"
-                  style={{ top: 18, left: 5, right: 5, fontSize: 8, color: "#9ca3af" }}
+                  style={{ top: 30, left: 8, right: 8, fontSize: 11, color: "#64748b" }}
                 >
                   {layout.topContainerIds[0]}
                 </div>

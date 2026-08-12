@@ -38,14 +38,17 @@ const YARD_WIDTH      = 2400 // used only for live layout
  *
  *  [GATE ══════════════════════════════════════════════════════════]
  */
+// Zone E (empties) at x=50, cols=2, blockW=360 → right edge ≈ 50+2*(360+14)−14 = 784px
+// Zone A/B must start at x ≥ 784 + 80 = 864 to avoid overlap.
+// Zone D must start beyond Zone A's right edge: 864+3*(360+14)−14 = 1972 → 1980+.
 const ZONE_LAYOUT: Record<string, { x: number; y: number; cols: number }> = {
   C: { x: 50,   y: 80,   cols: 2 },   // Customs      — upper left
-  A: { x: 730,  y: 80,   cols: 3 },   // Import full  — upper center
-  B: { x: 730,  y: 530,  cols: 3 },   // Import full  — lower center (below A)
-  D: { x: 1930, y: 80,   cols: 1 },   // Hazmat       — upper right, isolated
-  E: { x: 50,   y: 420,  cols: 2 },   // Empties      — lower left  (below C)
-  S: { x: 730,  y: 980,  cols: 5 },   // Staging      — near gate
-  R: { x: 50,   y: 1090, cols: 10 },  // Receiving    — near gate, wide strip
+  A: { x: 880,  y: 80,   cols: 3 },   // Import full  — upper center (clear of E)
+  B: { x: 880,  y: 545,  cols: 3 },   // Import full  — lower center (below A)
+  D: { x: 1990, y: 80,   cols: 1 },   // Hazmat       — far right, isolated
+  E: { x: 50,   y: 430,  cols: 2 },   // Empties      — lower left  (below C)
+  S: { x: 880,  y: 990,  cols: 5 },   // Staging      — near gate
+  R: { x: 50,   y: 1100, cols: 10 },  // Receiving    — near gate, wide strip
 }
 
 export function computeBlockLayouts(
