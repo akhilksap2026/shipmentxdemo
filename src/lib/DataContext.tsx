@@ -263,7 +263,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     description: string
   }): Promise<BackendDisruption | null> => {
     try {
-      return await backendApi.createDisruption(data)
+      const disruption = await backendApi.createDisruption(data)
+      // If the disruption triggered a replan, refresh plans so activePlan stays current
+      if (disruption.triggered_replan_id != null) {
+        const plansList = await backendApi.plans()
+        const newActive = plansList.length > 0
+          ? await backendApi.plan(plansList[0].id)
+          : undefined
+        setData(prev => ({
+          ...prev,
+          plans: plansList,
+          ...(newActive ? { activePlan: newActive } : {}),
+        }))
+      }
+      return disruption
     } catch (err) {
       console.error('[DataContext] createDisruption failed:', err)
       return null

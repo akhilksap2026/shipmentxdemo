@@ -1,0 +1,29 @@
+TASK: Fix 5 bugs in the backend API client and DataContext that will cause failures when the real FastAPI planning engine is connected. Do NOT change any screen files or seed data.
+
+BUG 1 — In src/lib/backend-api.ts, fix updateSolverConfig:
+  WRONG:  request<BackendSolverConfig>("/solver-config/active", { method: "PATCH", body: JSON.stringify(changes) })
+  RIGHT:  request<BackendSolverConfig>("/solver-config", { method: "PUT", body: JSON.stringify(changes) })
+Also update the parameter type to accept { updated_by?: string }.
+
+BUG 2 — In src/lib/backend-api.ts, fix BackendSolverConfig interface:
+  Remove: updated_at (doesn't exist in backend)
+  Add: is_active: boolean, created_by: string, tuning_run_id: number | null, notes: string | null
+  Change: candidate_k from `number` to `number | null`
+
+BUG 3 — In src/lib/backend-api.ts, fix BackendOptimizerRun interface:
+  Remove: level, completed_trials (don't exist in backend response)
+  Add: batch_size: number, replay_sample_size: number, replay_window_days: number, data_source: "historical" | "synthetic_fallback", replay_plan_ids: number[] | null, completed_at: string | null, error_message: string | null
+  Change: best_knobs from Partial<BackendSolverConfig> | null to Record<string, number | null> | null
+
+BUG 4 — In src/lib/backend-api.ts, fix applyOptimizerRun return type:
+  WRONG:  request<{ status: string; config: BackendSolverConfig }>
+  RIGHT:  request<BackendSolverConfig>
+
+BUG 5 — In src/lib/DataContext.tsx, in the createDisruption function, after calling backendApi.createDisruption, if the returned disruption has a non-null triggered_replan_id, refresh the plans slice by re-fetching backendApi.plans() and loading the new active plan detail. This ensures activePlan stays current after a disruption-triggered replan.
+
+After fixing these, check src/screens/Settings.tsx for any references to:
+- activeRun.completed_trials → this field no longer exists; replace with status check or trial count from detail endpoint
+- activeRun.level → this field no longer exists; remove or derive from total_trials/batch_size
+- result.config after applyOptimizerRun → the result IS the config directly, not wrapped in { config }
+
+DO NOT change any other files. Verify the app still boots with seed data after fixes.

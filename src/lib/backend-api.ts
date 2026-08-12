@@ -100,9 +100,13 @@ export interface BackendSolverConfig {
   id: number;
   version: number;
   source: "manual" | "tuned";
+  is_active: boolean;
+  created_by: string;
+  tuning_run_id: number | null;
+  notes: string | null;
   // Search parameters
   num_search_workers: number;
-  candidate_k: number;
+  candidate_k: number | null;
   portfolio_variant_count: number;
   // Physical calibration
   base_move_minutes: number;
@@ -115,23 +119,26 @@ export interface BackendSolverConfig {
   score_scaling_factor: number;
   tier_multiplier: number;
   created_at: string;
-  updated_at: string;
 }
 
 // ─── Optimizer runs ──────────────────────────────────────────────────
 export type OptimizerRunStatus = "pending" | "running" | "completed" | "cancelled" | "failed";
-export type OptimizerLevel = "low" | "balanced" | "high";
 
 export interface BackendOptimizerRun {
   id: number;
-  level: OptimizerLevel;
   status: OptimizerRunStatus;
   total_trials: number;
-  completed_trials: number;
+  batch_size: number;
+  replay_sample_size: number;
+  replay_window_days: number;
+  data_source: "historical" | "synthetic_fallback";
+  replay_plan_ids: number[] | null;
   best_score: number | null;
-  best_knobs: Partial<BackendSolverConfig> | null;
+  best_knobs: Record<string, number | null> | null;
   created_at: string;
+  completed_at: string | null;
   applied_at: string | null;
+  error_message: string | null;
 }
 
 // ─── API functions ───────────────────────────────────────────────────
@@ -202,14 +209,14 @@ export const backendApi = {
 
   // Solver config
   getActiveSolverConfig: () => request<BackendSolverConfig>("/solver-config/active"),
-  updateSolverConfig: (changes: Partial<BackendSolverConfig>) =>
-    request<BackendSolverConfig>("/solver-config/active", { method: "PATCH", body: JSON.stringify(changes) }),
+  updateSolverConfig: (changes: Partial<BackendSolverConfig> & { updated_by?: string }) =>
+    request<BackendSolverConfig>("/solver-config", { method: "PUT", body: JSON.stringify(changes) }),
 
   // Optimizer runs
-  startOptimizerRun: (body: { level: OptimizerLevel }) =>
+  startOptimizerRun: (body: { total_trials?: number; batch_size?: number }) =>
     request<BackendOptimizerRun>("/optimizer/runs", { method: "POST", body: JSON.stringify(body) }),
   getOptimizerRun: (id: number) => request<BackendOptimizerRun>(`/optimizer/runs/${id}`),
   listOptimizerRuns: () => request<BackendOptimizerRun[]>("/optimizer/runs"),
   applyOptimizerRun: (id: number) =>
-    request<{ status: string; config: BackendSolverConfig }>(`/optimizer/runs/${id}/apply`, { method: "POST" }),
+    request<BackendSolverConfig>(`/optimizer/runs/${id}/apply`, { method: "POST" }),
 };

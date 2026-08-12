@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/lib/DataContext"
 import { backendApi } from "@/lib/backend-api"
-import type { BackendSolverConfig, BackendOptimizerRun, OptimizerLevel } from "@/lib/backend-api"
+import type { BackendSolverConfig, BackendOptimizerRun } from "@/lib/backend-api"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ReferenceArea, ResponsiveContainer,
@@ -92,10 +92,10 @@ const PHYSICAL_KNOBS: Array<{ key: keyof BackendSolverConfig; label: string; ste
 
 // ── Optimizer level presets ───────────────────────────────────────────────────
 
-const OPTIMIZER_LEVELS: Array<{ level: OptimizerLevel; label: string; desc: string; trials: number }> = [
-  { level: "low",      label: "Low",      desc: "Quick — ~5 trials, completes in seconds",   trials: 5  },
-  { level: "balanced", label: "Balanced", desc: "Recommended — ~20 trials, ~1–2 minutes",    trials: 20 },
-  { level: "high",     label: "High",     desc: "Thorough — ~50 trials, may take 5+ minutes", trials: 50 },
+const OPTIMIZER_LEVELS: Array<{ label: string; desc: string; trials: number }> = [
+  { label: "Quick",       desc: "~5 trials — completes in seconds",        trials: 5  },
+  { label: "Balanced",    desc: "~20 trials — recommended, ~1–2 minutes",  trials: 20 },
+  { label: "Thorough",    desc: "~50 trials — may take 5+ minutes",        trials: 50 },
 ]
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -231,10 +231,10 @@ export default function SettingsScreen() {
     return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
   }, [activeRun?.id, activeRun?.status])
 
-  async function startOptimizerRun(level: OptimizerLevel) {
+  async function startOptimizerRun(trials: number) {
     setOptimizerBusy(true); setOptimizerError(null)
     try {
-      const run = await backendApi.startOptimizerRun({ level })
+      const run = await backendApi.startOptimizerRun({ total_trials: trials })
       setActiveRun(run)
       setRunHistory(prev => [run, ...prev])
     } catch (err) {
@@ -705,7 +705,7 @@ export default function SettingsScreen() {
                       {solverConfig.source}
                     </div>
                     <div className="text-[10.5px] text-neutral-400 ml-1">
-                      Updated {new Date(solverConfig.updated_at).toLocaleDateString()}
+                      Created {new Date(solverConfig.created_at).toLocaleDateString()}
                     </div>
                   </div>
 
@@ -822,8 +822,8 @@ export default function SettingsScreen() {
                   {/* Start a run */}
                   <div className="px-5 pt-4 pb-1 ds-label text-neutral-500 font-bold">Start optimization</div>
                   <div className="px-5 pb-4 flex flex-col gap-2">
-                    {OPTIMIZER_LEVELS.map(({ level, label, desc, trials }) => (
-                      <button key={level} onClick={() => startOptimizerRun(level)}
+                    {OPTIMIZER_LEVELS.map(({ label, desc, trials }) => (
+                      <button key={label} onClick={() => startOptimizerRun(trials)}
                         disabled={optimizerBusy || (!!activeRun && (activeRun.status === "pending" || activeRun.status === "running"))}
                         className="text-left px-4 py-3 border border-neutral-300 hover:border-neutral-500 hover:bg-[#f9fafb] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         style={{ borderRadius: 5 }}>
@@ -846,7 +846,7 @@ export default function SettingsScreen() {
                       <div className="border border-neutral-300 px-4 py-4 bg-white" style={{ borderRadius: 5 }}>
                         <div className="flex justify-between items-baseline mb-1">
                           <span className="font-semibold text-[15px]">
-                            Run <span className="font-mono">#{activeRun.id}</span> · {activeRun.level}
+                            Run <span className="font-mono">#{activeRun.id}</span>
                           </span>
                           <span className={`font-mono text-[11px] font-bold uppercase tracking-wider ${
                             activeRun.status === "running"   ? "text-[#d97706]"  :
@@ -860,16 +860,10 @@ export default function SettingsScreen() {
 
                         {/* Trial progress */}
                         {(activeRun.status === "running" || activeRun.status === "completed") && (
-                          <>
-                            <div className="text-[12px] text-neutral-600 mb-2">
-                              Trial <span className="font-mono">{activeRun.completed_trials}</span> of <span className="font-mono">{activeRun.total_trials}</span>
-                              {activeRun.best_score != null && <> · best score <strong className="font-mono">{activeRun.best_score.toFixed(2)}</strong></>}
-                            </div>
-                            <div className="relative h-2 bg-neutral-100">
-                              <div className="absolute left-0 top-0 bottom-0 bg-neutral-700 transition-all"
-                                style={{ width: activeRun.total_trials > 0 ? (activeRun.completed_trials / activeRun.total_trials * 100).toFixed(1) + "%" : "0%" }} />
-                            </div>
-                          </>
+                          <div className="text-[12px] text-neutral-600 mb-1">
+                            <span className="font-mono">{activeRun.total_trials}</span> trials planned
+                            {activeRun.best_score != null && <> · best score <strong className="font-mono">{activeRun.best_score.toFixed(2)}</strong></>}
+                          </div>
                         )}
                         {activeRun.status === "pending" && (
                           <div className="text-[12px] text-neutral-500 mt-1">Queued — waiting for engine capacity…</div>
@@ -921,7 +915,7 @@ export default function SettingsScreen() {
                     <table className="w-full border-collapse text-[11.5px]">
                       <thead>
                         <tr>
-                          {["ID","Level","Status","Trials","Best score","Applied"].map(h => (
+                          {["ID","Status","Trials","Best score","Applied"].map(h => (
                             <th key={h} className="ds-th text-left"
                               style={{paddingLeft:h==="ID"?"20px":undefined}}>{h}</th>
                           ))}
@@ -931,7 +925,6 @@ export default function SettingsScreen() {
                         {runHistory.map(r => (
                           <tr key={r.id} className="border-b border-[#f3f4f6] hover:bg-[#f9fafb]" style={{ minHeight: 38 }}>
                             <td className="py-2 pl-5 pr-3 font-mono font-bold">#{r.id}</td>
-                            <td className="px-3 py-2 capitalize">{r.level}</td>
                             <td className="px-3 py-2">
                               <span className={`font-mono font-semibold ${
                                 r.status === "completed"                              ? "text-[#059669]" :
@@ -941,7 +934,7 @@ export default function SettingsScreen() {
                                 {r.status}
                               </span>
                             </td>
-                            <td className="px-3 py-2 font-mono"><span className="font-mono">{r.completed_trials}</span> / <span className="font-mono">{r.total_trials}</span></td>
+                            <td className="px-3 py-2 font-mono"><span className="font-mono">{r.total_trials}</span></td>
                             <td className="px-3 py-2 font-mono">{r.best_score != null ? r.best_score.toFixed(2) : "—"}</td>
                             <td className="px-3 py-2 text-neutral-500">{r.applied_at ? new Date(r.applied_at).toLocaleDateString() : "—"}</td>
                           </tr>
