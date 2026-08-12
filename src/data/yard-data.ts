@@ -127,6 +127,73 @@ function buildContainers(): Container[] {
 
 export const CONTAINERS: Container[] = buildContainers();
 
+// ── Vessel schedules ──────────────────────────────────────────────────────────
+
+export interface VesselSchedule {
+  vesselName: string
+  voyage: string
+  berthWindow: string
+  cutoffTime: string      // "HH:MM" 24-hour
+  containersOnBoard: string[]   // container IDs from CONTAINERS
+}
+
+const _fullC = CONTAINERS.filter(c => !c.empty)
+
+export const VESSEL_SCHEDULES: VesselSchedule[] = [
+  {
+    vesselName: "MSC LUCIA",    voyage: "V.412E",
+    berthWindow: "08:00–14:00", cutoffTime: "06:00",
+    containersOnBoard: _fullC.slice(0, 14).map(c => c.id),
+  },
+  {
+    vesselName: "MAERSK SALINA", voyage: "V.238W",
+    berthWindow: "10:30–16:00",  cutoffTime: "08:30",
+    containersOnBoard: _fullC.slice(14, 26).map(c => c.id),
+  },
+  {
+    vesselName: "CMA CGM ANDES", voyage: "V.117N",
+    berthWindow: "14:00–20:00",  cutoffTime: "12:00",
+    containersOnBoard: _fullC.slice(26, 38).map(c => c.id),
+  },
+  {
+    vesselName: "SANTOS EXPRESS", voyage: "V.902",
+    berthWindow: "19:00–01:00",   cutoffTime: "17:00",
+    containersOnBoard: _fullC.slice(38, 48).map(c => c.id),
+  },
+]
+
+/**
+ * Returns the set of container IDs considered "hot" for the current shift:
+ * – hoursToLFD ≤ 4, OR
+ * – the container is on a vessel whose cutoff is within the next 4 hours.
+ * Pass nowHour (0–23) to override the real clock (useful for testing / seed mode).
+ */
+export function getHotContainers(containers: Container[], nowHour?: number): Set<string> {
+  const hour = nowHour ?? new Date().getHours()
+  const hot = new Set<string>()
+
+  // Rule 1 — LFD urgency
+  for (const c of containers) {
+    if (!c.empty && c.hoursToLFD <= 4) hot.add(c.id)
+  }
+
+  // Rule 2 — vessel cutoff within 4 hours
+  for (const vessel of VESSEL_SCHEDULES) {
+    const [cutH, cutM] = vessel.cutoffTime.split(":").map(Number)
+    const cutoffMinutes = cutH * 60 + cutM
+    const nowMinutes   = hour  * 60
+    const hoursTocut   = (cutoffMinutes - nowMinutes) / 60
+    if (hoursTocut >= 0 && hoursTocut <= 4) {
+      const onBoard = new Set(vessel.containersOnBoard)
+      for (const c of containers) {
+        if (onBoard.has(c.id)) hot.add(c.id)
+      }
+    }
+  }
+
+  return hot
+}
+
 export const MOVE_TYPES = ["RETRIEVE_STAGE","PLACE_INBOUND","RESHUFFLE","LOAD_OUTBOUND","PRE_MARSHAL","RECEIVE_FROM_LANE","MOVE_INSPECTION"];
 export const TYPE_LABEL: Record<string, string> = {
   RETRIEVE_STAGE: "Retrieve to staging", PLACE_INBOUND: "Place inbound", RESHUFFLE: "Reshuffle",

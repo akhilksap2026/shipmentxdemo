@@ -48,16 +48,20 @@ function allowed(persona: Persona, screen: Screen): boolean {
 
 // ── Inner shell — lives inside DataProvider so it can call useData() ──────────
 function AppShell() {
-  const { moves, events, visits, refresh } = useData()
+  const { moves, events, visits, refresh, backendConnected, dbLoading, reconnectBackend } = useData()
 
   const [persona,     setPersona]     = useState<Persona>("manager")
   const [screen,      setScreen]      = useState<Screen>("plan")
   const [focus,       setFocus]       = useState<string | null>(null)
   const [storyIdx,    setStoryIdx]    = useState(0)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [refreshing,  setRefreshing]  = useState(false)
-  const [syncLabel,   setSyncLabel]   = useState("just now")
+  const [showDemo,    setShowDemo]    = useState(() => localStorage.getItem("yardos:showDemo") !== "false")
+  const [refreshing,     setRefreshing]     = useState(false)
+  const [reconnecting,   setReconnecting]   = useState(false)
+  const [syncLabel,      setSyncLabel]      = useState("just now")
   const lastSyncRef = useRef(Date.now())
+
+  useEffect(() => { localStorage.setItem("yardos:showDemo", String(showDemo)) }, [showDemo])
 
   // ── Badge counts ─────────────────────────────────────────────────────────────
   const BADGE_COUNT: Partial<Record<Screen, number>> = {
@@ -101,6 +105,16 @@ function AppShell() {
     }
   }
 
+  async function handleReconnect() {
+    if (reconnecting) return
+    setReconnecting(true)
+    try {
+      await reconnectBackend()
+    } finally {
+      setReconnecting(false)
+    }
+  }
+
   function goStory(delta: number) {
     const next = Math.max(0, Math.min(STORY.length - 1, storyIdx + delta))
     setStoryIdx(next)
@@ -139,7 +153,7 @@ function AppShell() {
 
       <div
         className="grid h-screen overflow-hidden"
-        style={{ gridTemplateColumns: "220px minmax(0,1fr)", gridTemplateRows: "44px 34px minmax(0,1fr)" }}
+        style={{ gridTemplateColumns: "220px minmax(0,1fr)", gridTemplateRows: showDemo ? "44px 34px minmax(0,1fr)" : "44px 0px minmax(0,1fr)" }}
       >
         {/* ── Sidebar ───────────────────────────────────────────────────────── */}
         <div
@@ -260,6 +274,13 @@ function AppShell() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* dbLoading indicator — shown while first DB fetch is in flight */}
+            {dbLoading && (
+              <span className="flex items-center gap-1.5 px-2 py-1" style={{ fontSize: 11, color: "#d97706", border: "1px solid #fcd34d", background: "#fffbeb" }}>
+                <span className="animate-spin text-[10px]">↻</span> Syncing data…
+              </span>
+            )}
+
             {/* Live sync */}
             <span
               className="flex items-center gap-1.5 px-2.5 py-1"
@@ -271,6 +292,24 @@ function AppShell() {
               />
               Live · {syncLabel}
             </span>
+
+            {/* Reconnect button — shown only when backend is offline */}
+            {!backendConnected && (
+              <button
+                onClick={handleReconnect}
+                disabled={reconnecting}
+                className="px-3 py-1.5 font-medium disabled:opacity-50"
+                style={{
+                  fontSize: 11,
+                  background: reconnecting ? "transparent" : "#fef2f2",
+                  border: "1px solid #fecaca",
+                  color: "#dc2626",
+                  borderRadius: 5,
+                }}
+              >
+                {reconnecting ? "↻ Connecting…" : "↻ Reconnect"}
+              </button>
+            )}
 
             {/* Persona toggle group */}
             <div className="flex items-center gap-0 border" style={{ borderColor: "#e5e7eb", borderRadius: 5, overflow: "hidden" }}>
@@ -310,6 +349,22 @@ function AppShell() {
               {refreshing ? "↻ Syncing…" : "↻ Refresh"}
             </button>
 
+            {/* Demo toggle */}
+            <button
+              onClick={() => setShowDemo(v => !v)}
+              title="Toggle demo story bar"
+              className="px-3 py-1.5 font-medium"
+              style={{
+                fontSize: 11,
+                background: showDemo ? "#111827" : "transparent",
+                border: "1px solid #e5e7eb",
+                color: showDemo ? "#fff" : "#9ca3af",
+                borderRadius: 5,
+              }}
+            >
+              🎬 Demo
+            </button>
+
             {/* Bell */}
             <button
               aria-label="Notifications"
@@ -323,7 +378,7 @@ function AppShell() {
         </div>
 
         {/* ── Story bar ─────────────────────────────────────────────────────── */}
-        <div
+        {showDemo && <div
           className="col-start-2 flex items-center gap-3 px-5"
           style={{
             background: "#fffbeb",
@@ -366,7 +421,7 @@ function AppShell() {
               Next step →
             </button>
           </div>
-        </div>
+        </div>}
 
         {/* ── Main content ──────────────────────────────────────────────────── */}
         <div className="col-start-2 row-start-3 min-w-0 min-h-0 overflow-hidden relative" style={{ background: "#f4f5f7" }}>

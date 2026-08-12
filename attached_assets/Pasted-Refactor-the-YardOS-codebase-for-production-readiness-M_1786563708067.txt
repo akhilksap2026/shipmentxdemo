@@ -1,0 +1,51 @@
+Refactor the YardOS codebase for production readiness. Make these changes in order:
+
+### 1. Split Settings.tsx into sub-components
+The file at src/screens/Settings.tsx is 1,113 lines — split it into:
+- `src/screens/settings/WeightFactorsTab.tsx` — Regime A weight configuration UI
+- `src/screens/settings/SolverConfigTab.tsx` — Solver parameters editor
+- `src/screens/settings/OptimizerRunsTab.tsx` — Optimizer run history & apply
+- `src/screens/settings/AdapterHealthTab.tsx` — Integration adapter health table
+- `src/screens/settings/ForecastTab.tsx` — Recharts forecast visualization
+Keep `src/screens/Settings.tsx` as a thin shell that renders the correct tab via shadcn Tabs. Preserve all existing behavior, data fetching, and state.
+
+### 2. Extract a reusable ContainerPicker component
+Create `src/components/ContainerPicker.tsx` that encapsulates the search-then-select pattern currently duplicated in:
+- GateConsole.tsx (gate in form, lines ~495-523)
+- ControlTower.tsx (disruption modal, lines ~243-268)
+
+Props interface:
+- `containers: BackendContainer[]`
+- `value: number | ""`
+- `onChange: (id: number, display: string) => void`
+- `placeholder?: string`
+- `disabled?: boolean`
+
+Replace both inline implementations with this component. Preserve the existing 20-item limit and search filtering.
+
+### 3. Fix MoveRow type safety in NightPlanner.tsx
+Replace the current `Move & { typeLabel?: string; stateLabel?: string }` intersection type with a clean discriminated union:
+
+```ts
+type MoveRowData = 
+  | { source: 'seed'; move: Move }
+  | { source: 'engine'; move: ReturnType<typeof adaptMoveForDisplay> }
+Update the MoveRow component to accept MoveRowData and branch internally. Remove all as unknown as Move and (m as { typeLabel?: string }).typeLabel casts.
+4. Add backend reconnection to DataContext
+In src/lib/DataContext.tsx:
+Add a reconnectBackend() function that retries the Phase 2 backend fetch (yard, containers, jockeys, plans, weights, orders).
+Expose it via context.
+Add a small "Reconnect" button in the topbar (App.tsx) that appears only when backendConnected === false, next to the Refresh button.
+Use exponential backoff: retry up to 3 times with 2s, 4s, 8s delays.
+5. Clean up unused imports
+Remove unused Button imports from:
+src/screens/NightPlanner.tsx
+src/screens/ControlTower.tsx
+Any other files where Button is imported but never used.
+6. Wire up dbLoading UI
+In src/screens/*.tsx (or centrally in App.tsx), show a subtle loading indicator when dbLoading === true. A small spinner or "Syncing data…" text in the topbar next to the live-sync label is sufficient. Do not block interaction — the seed data is already visible.
+Rules
+Do not change any API contracts, endpoint URLs, or runtime behavior.
+Do not modify server/index.ts or server/db.ts.
+All existing shadcn/ui components must continue to work.
+Run npm run build after changes to verify TypeScript compiles cleanly.

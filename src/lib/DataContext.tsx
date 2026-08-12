@@ -111,6 +111,8 @@ export interface YardData {
   }) => Promise<BackendDisruption | null>
   updateWeights: (weights: { factor_name: string; weight: number }[]) => Promise<{ warnings: string[] } | null>
   resetBackend: () => Promise<void>
+  /** Re-attempt Phase 2 backend connection with exponential backoff (2s / 4s / 8s, 3 retries). */
+  reconnectBackend: () => Promise<void>
 }
 
 // ── Seed initial state ────────────────────────────────────────────────────────
@@ -154,6 +156,7 @@ const INITIAL: YardData = {
   createDisruption: async () => null,
   updateWeights: async () => null,
   resetBackend: NOOP_ASYNC,
+  reconnectBackend: NOOP_ASYNC,
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -306,6 +309,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [refresh])
 
+  /** Re-attempt Phase 2 backend connection. Retries up to 3 times with 2s / 4s / 8s delays. */
+  const reconnectBackend = useCallback(async (): Promise<void> => {
+    const delays = [2000, 4000, 8000]
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      if (attempt > 0) {
+        await new Promise<void>(resolve => setTimeout(resolve, delays[attempt - 1]))
+      }
+      try {
+        const [yardState, containers, jockeys, plansList, weights, ordersList] = await Promise.all([
+          backendApi.yard(),
+          backendApi.containers(),
+          backendApi.jockeys(),
+          backendApi.plans(),
+          backendApi.weights(),
+          backendApi.orders(),
+        ])
+        let activePlan: BackendPlanDetail | null = null
+        if (plansList.length > 0) {
+          activePlan = await backendApi.plan(plansList[0].id)
+        }
+        setData(prev => ({
+          ...prev,
+          backendConnected: true,
+          backendSlots: yardState.slots,
+          backendContainers: containers,
+          backendJockeys: jockeys,
+          plans: plansList,
+          activePlan,
+          backendWeights: weights,
+          orders: ordersList,
+        }))
+        return // success — stop retrying
+      } catch (err) {
+        console.warn(`[DataContext] reconnectBackend attempt ${attempt + 1} failed:`, err)
+      }
+    }
+    console.warn('[DataContext] reconnectBackend: all retries exhausted')
+  }, [])
+
   // ── Mount effect ──────────────────────────────────────────────────────────
   useEffect(() => {
     ;(async () => {
@@ -401,6 +443,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     createDisruption,
     updateWeights,
     resetBackend,
+    reconnectBackend,
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

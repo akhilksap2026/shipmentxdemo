@@ -4,6 +4,8 @@ import { useData } from "@/lib/DataContext"
 import type { Visit } from "@/data/yard-ops"
 import { backendApi } from "@/lib/backend-api"
 import type { BackendGateTransaction } from "@/lib/backend-api"
+import ContainerPicker from "@/components/ContainerPicker"
+import { computeRehandleCost } from "@/lib/utils"
 
 interface Props { focus: string | null }
 
@@ -26,7 +28,7 @@ const EXCL_REASONS = [
 ]
 
 export default function GateConsole({ focus }: Props) {
-  const { visits, lanes, appointments, refresh, backendConnected, backendContainers } = useData()
+  const { visits, lanes, appointments, refresh, backendConnected, backendContainers, containers } = useData()
 
   // ── Existing state (unchanged) ────────────────────────────────────────────
   const [tab,          setTab]         = useState("visits")
@@ -47,7 +49,6 @@ export default function GateConsole({ focus }: Props) {
   const [gateInPlate,     setGateInPlate]     = useState("")
   const [gateInDriver,    setGateInDriver]    = useState("")
   const [gateInCarrier,   setGateInCarrier]   = useState("")
-  const [gateInCq,        setGateInCq]        = useState("")   // container search query
   const [submittingGateIn,setSubmittingGateIn]= useState(false)
   const [gateOutLoading,  setGateOutLoading]  = useState<number | null>(null)
   const [turnaroundToast, setTurnaroundToast] = useState<string | null>(null)
@@ -97,7 +98,7 @@ export default function GateConsole({ focus }: Props) {
         carrier_ref:         gateInCarrier || undefined,
       })
       setShowGateInForm(false)
-      setGateInContId(""); setGateInPlate(""); setGateInDriver(""); setGateInCarrier(""); setGateInCq("")
+      setGateInContId(""); setGateInPlate(""); setGateInDriver(""); setGateInCarrier("")
       await loadTransactions()
     } catch (err) {
       console.error("[GateConsole] gate in:", err)
@@ -185,9 +186,6 @@ export default function GateConsole({ focus }: Props) {
 
   // Container picker options — only in_transit or yard
   const pickableContainers = backendContainers.filter(c => c.status === "in_transit" || c.status === "yard")
-  const filteredContainers = gateInCq.trim()
-    ? pickableContainers.filter(c => c.container_number.toLowerCase().includes(gateInCq.toLowerCase()))
-    : pickableContainers.slice(0, 20)
 
   // ── Existing derived values (unchanged) ───────────────────────────────────
   const selVisit: Visit = visits.find(v => v.id === sel) || visits[0]
@@ -195,6 +193,15 @@ export default function GateConsole({ focus }: Props) {
   const apptData = appointments.find(a => a.window === apptSel) || appointments[0]
 
   if (!selVisit) return null
+
+  // ── Rehandle pre-check (pickup / retrieval visits only) ───────────────────
+  const isPickup = /pickup|retrieval/i.test(selVisit.purpose)
+  const pickupContainer = isPickup
+    ? containers.find(c => c.id === selVisit.container) ?? null
+    : null
+  const rehandleCheck = pickupContainer
+    ? computeRehandleCost(pickupContainer.address, containers)
+    : null
 
   async function handleCheckIn() {
     if (checkingIn || checkInDone) return
@@ -409,6 +416,58 @@ export default function GateConsole({ focus }: Props) {
                 ))}
               </div>
             </div>
+            {/* ── Yard accessibility (pickup visits only) ─────────────────── */}
+            {rehandleCheck && (
+              <>
+                <div className="px-4 pt-3 pb-1.5 ds-label text-neutral-500 font-bold">Yard accessibility</div>
+                <div className="px-4 pb-3 flex flex-col gap-2">
+                  {/* Address line */}
+                  <div className="text-[11.5px] text-[#374151]">
+                    Container at <span className="font-mono">{pickupContainer!.address}</span>
+                  </div>
+                  {/* Status callout */}
+                  {rehandleCheck.accessible ? (
+                    <div
+                      className="flex items-start gap-2 px-3 py-2 text-[11.5px]"
+                      style={{ background: "#f0fdf4", border: "1px solid #059669", borderRadius: 5, color: "#065f46" }}
+                    >
+                      <span className="font-bold leading-none mt-px">✓</span>
+                      <span>Direct access — no rehandles required</span>
+                    </div>
+                  ) : (
+                    <div
+                      className="flex items-start gap-2 px-3 py-2 text-[11.5px]"
+                      style={{ background: "#fffbeb", border: "1px solid #d97706", borderRadius: 5, color: "#92400e" }}
+                    >
+                      <span className="font-bold leading-none mt-px">▲</span>
+                      <div>
+                        <div className="font-semibold">
+                          {rehandleCheck.rehandles} rehandle{rehandleCheck.rehandles !== 1 ? "s" : ""} required
+                          <span className="font-normal ml-2">≈ {(rehandleCheck.rehandles * 4.8).toFixed(0)}′ added</span>
+                        </div>
+                        <div className="mt-1 text-[10.5px] leading-relaxed">
+                          Blocking:{" "}
+                          {rehandleCheck.blocking.map(c => (
+                            <span key={c.id} className="font-mono mr-1.5">{c.id}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* High-rehandle warning banner */}
+                {rehandleCheck.rehandles > 2 && (
+                  <div
+                    className="mx-4 mb-3 px-3 py-2.5 text-[11.5px] leading-snug"
+                    style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 5, color: "#991b1b" }}
+                  >
+                    <span className="font-bold">This pickup requires {rehandleCheck.rehandles} rehandles.</span>
+                    {" "}Consider staging first or notify the planner.
+                  </div>
+                )}
+              </>
+            )}
+
             <div className="px-4 pt-3 pb-1.5 ds-label text-neutral-500 font-bold">Actions</div>
             <div className="flex flex-col gap-1.5 px-4 pb-4">
               <button
@@ -494,32 +553,12 @@ export default function GateConsole({ focus }: Props) {
                     {/* Container picker */}
                     <div className="col-span-2">
                       <label className="ds-label text-neutral-500 block mb-1">Container</label>
-                      <input
-                        type="text"
+                      <ContainerPicker
+                        containers={pickableContainers}
+                        value={gateInContId}
+                        onChange={(id, display) => { setGateInContId(id); }}
                         placeholder="Search container number…"
-                        value={gateInCq}
-                        onChange={e => { setGateInCq(e.target.value); setGateInContId("") }}
-                        className="w-full border border-[#e5e7eb] px-2 py-1.5 text-[12px] mb-1"
-                        style={{ borderRadius: 5 }}
                       />
-                      {gateInCq && gateInContId === "" && (
-                        <div className="border border-[#e5e7eb] bg-white max-h-36 overflow-auto" style={{ borderRadius: 5 }}>
-                          {filteredContainers.length === 0 && (
-                            <div className="px-3 py-2 text-[11.5px] text-neutral-500">No containers match</div>
-                          )}
-                          {filteredContainers.map(c => (
-                            <button key={c.id}
-                              onClick={() => { setGateInContId(c.id); setGateInCq(c.container_number) }}
-                              className="block w-full text-left px-3 py-2 text-[11.5px] hover:bg-[#f9fafb] border-b border-[#f3f4f6] last:border-0">
-                              <span className="font-mono font-semibold">{c.container_number}</span>
-                              <span className="ml-2 text-neutral-500">{c.size_ft}ft · {c.status.replace(/_/g," ")}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {gateInContId !== "" && (
-                        <div className="text-[11px] mt-0.5" style={{ color: "#059669" }}>✓ Container {gateInCq} selected (ID <span className="font-mono">{gateInContId}</span>)</div>
-                      )}
                     </div>
 
                     <div>
@@ -554,7 +593,7 @@ export default function GateConsole({ focus }: Props) {
                     </button>
                     <button
                       style={{ background: "white", color: "#374151", border: "1px solid #e5e7eb", borderRadius: 5, fontSize: 12, padding: "5px 14px", fontWeight: 600 }}
-                      onClick={() => { setShowGateInForm(false); setGateInContId(""); setGateInPlate(""); setGateInDriver(""); setGateInCarrier(""); setGateInCq("") }}
+                      onClick={() => { setShowGateInForm(false); setGateInContId(""); setGateInPlate(""); setGateInDriver(""); setGateInCarrier("") }}
                     >
                       Cancel
                     </button>

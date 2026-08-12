@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { TYPE_LABEL, type Move } from "@/data/yard-data"
+import { TYPE_LABEL, VESSEL_SCHEDULES, CONTAINERS, getHotContainers, type Move } from "@/data/yard-data"
 import { useData } from "@/lib/DataContext"
 import { adaptMoveForDisplay, REASON_LABELS } from "@/lib/backend-adapters"
 import { backendApi } from "@/lib/backend-api"
@@ -15,10 +15,11 @@ interface Props {
 }
 
 const WEIGHTS = [
-  { k: "Machine minutes", v: "0.40", pct: 40 },
-  { k: "Weighted lateness", v: "0.25", pct: 25 },
-  { k: "Predicted rehandles", v: "0.20", pct: 20 },
-  { k: "Detention exposure", v: "0.15", pct: 15 },
+  { k: "Vessel cutoff urgency", v: "0.35", pct: 35 },
+  { k: "Machine minutes",       v: "0.40", pct: 40 },
+  { k: "Weighted lateness",     v: "0.25", pct: 25 },
+  { k: "Predicted rehandles",   v: "0.20", pct: 20 },
+  { k: "Detention exposure",    v: "0.15", pct: 15 },
 ]
 
 const HOURS = ["06","07","08","09","10","11","12","13"]
@@ -49,7 +50,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
   const [published, setPublished] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
-  const [wRaw, setWRaw] = useState([40, 25, 20, 15])
+  const [wRaw, setWRaw] = useState([35, 40, 25, 20, 15])
 
   // ── New plan-source toggle & engine state ──────────────────────────────────
   const [planSource, setPlanSource] = useState<PlanSource>("seed")
@@ -169,49 +170,68 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
     { k:"Detention breaches", target:"0", opt:"0", exp:"0", pes:"2", bandLeft:10, bandWidth:40, mark:22 },
   ]
 
+  // ── Hot container set (seed mode — uses simulated shift-start hour 06:00) ──
+  const hotContainerIds = getHotContainers(CONTAINERS, 6)
+
   // ── Engine mode derived values ─────────────────────────────────────────────
   const engineMoves = viewedPlan
     ? viewedPlan.moves.map(m => adaptMoveForDisplay(m, backendContainers, backendSlots, backendJockeys))
     : []
 
   // ── Shared move-table row renderer (works for both seed and engine rows) ───
-  // For seed rows: uses m.type → TYPE_LABEL, m.state
-  // For engine rows: uses m.typeLabel (from adapter), m.stateLabel (from adapter)
+  type MoveRowData =
+    | { source: "seed"; move: Move }
+    | { source: "engine"; move: ReturnType<typeof adaptMoveForDisplay> }
+
   function MoveRow({ m, isSelected, onClick }: {
-    m: Move & { typeLabel?: string; stateLabel?: string }
+    m: MoveRowData
     isSelected: boolean
     onClick: () => void
   }) {
-    const typeDisplay = (m as { typeLabel?: string }).typeLabel ?? TYPE_LABEL[m.type] ?? m.type
-    const stateDisplay = ((m as { stateLabel?: string }).stateLabel ?? m.state ?? "").toLowerCase()
-    const isCompleted = m.state === "done" || m.state === "complete" || m.state === "completed"
+    const typeDisplay = m.source === "seed"
+      ? (TYPE_LABEL[m.move.type] ?? m.move.type)
+      : m.move.typeLabel
+    const stateDisplay = m.source === "seed"
+      ? (m.move.state ?? "").toLowerCase()
+      : m.move.stateLabel.toLowerCase()
+    const isCompleted = m.source === "seed"
+      ? (m.move.state === "done" || m.move.state === "complete" || m.move.state === "completed")
+      : (m.move.status === "done" || m.move.status === "cancelled")
+    const frozen = m.move.frozen
+    const windowStr = m.source === "seed"
+      ? `${m.move.start}–${m.move.end}`
+      : `seq ${m.move.sequence_number}`
+    const isHot = hotContainerIds.has(m.move.containerId)
     return (
       <tr
         onClick={onClick}
         className="cursor-pointer hover:bg-[#f9fafb] transition-colors"
         style={{
-          background: isSelected ? "#fef3f2" : isCompleted ? "#fafafa" : undefined,
+          background: isSelected ? "#fef3f2" : isHot ? "#fff8f5" : isCompleted ? "#fafafa" : undefined,
           borderBottom: "1px solid #f3f4f6",
           minHeight: 38,
         }}
       >
         <td
           className="py-2 pl-4 pr-2.5 font-mono text-[#9ca3af]"
-          style={{ borderLeft: `3px solid ${isSelected ? "#dc2626" : m.frozen ? "#ccc" : "transparent"}` }}
+          style={{ borderLeft: `3px solid ${isSelected ? "#dc2626" : isHot ? "#f97316" : frozen ? "#ccc" : "transparent"}` }}
         >
-          {String(m.seq).padStart(3, "0")}
+          {String(m.move.seq).padStart(3, "0")}
         </td>
-        <td className="px-3 py-2 font-mono whitespace-nowrap">{m.start}–{m.end}</td>
+        <td className="px-3 py-2 font-mono whitespace-nowrap">{windowStr}</td>
         <td className="px-3 py-2">
           <div className="font-bold">{typeDisplay}</div>
-          <div className="text-[11px] text-[#9ca3af] font-mono">{m.containerId}</div>
+          <div className="text-[11px] text-[#9ca3af] font-mono">
+            {isHot && <span title="Hot container — LFD ≤ 4 h or vessel cutoff within 4 h" className="mr-1">🔥</span>}
+            {m.move.containerId}
+          </div>
         </td>
-        <td className="px-3 py-2 font-mono text-[#374151] whitespace-nowrap">{m.from} → {m.to}</td>
+        <td className="px-3 py-2 font-mono text-[#374151] whitespace-nowrap">{m.move.from} → {m.move.to}</td>
         <td className="px-3 py-2 whitespace-nowrap">
-          <div>{m.operatorName}</div>
-          <div className="text-[11px] text-[#9ca3af]">{m.equipment} · {stateDisplay}</div>
+          <div>{m.move.operatorName}</div>
+          <div className="text-[11px] text-[#9ca3af]">{m.move.equipment} · {stateDisplay}</div>
         </td>
-        <td className="px-3 py-2 text-right font-mono font-semibold">{m.estMin.toFixed(1)}′</td>
+        <td className="px-3 py-2 text-right font-mono font-semibold">{m.move.estMin.toFixed(1)}′</td>
       </tr>
     )
   }
@@ -243,12 +263,12 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
             </div>
             <p className="text-[11px] text-[#9ca3af] mt-2 leading-relaxed">Weight changes take effect on the next generation, never against a published plan.</p>
             <div className="mt-4 ds-label font-bold">Objective weights</div>
-            {["Machine minutes","Weighted lateness","Predicted rehandles","Detention exposure"].map((k, i) => (
+            {["Vessel cutoff urgency","Machine minutes","Weighted lateness","Predicted rehandles","Detention exposure"].map((k, i) => (
               <div key={k} className="py-2 border-b border-[#f3f4f6]">
                 <div className="flex justify-between text-[11.5px]">
                   <span>{k}</span><span className="font-bold font-mono">{(wRaw[i]/100).toFixed(2)}</span>
                 </div>
-                <input type="range" min={0} max={40} value={wRaw[i]}
+                <input type="range" min={0} max={50} value={wRaw[i]}
                   onChange={e => { const w=[...wRaw]; w[i]=+e.target.value; setWRaw(w) }}
                   className="w-full mt-2 accent-[#dc2626]" />
               </div>
@@ -402,6 +422,48 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
       {planSource === "seed" && (
         <div className="px-5 py-2 bg-[#f9fafb] border-b border-[#e5e7eb] text-[12.5px] leading-relaxed text-[#374151] max-w-5xl flex-none">
           Plan, filter, and sequence today's {moves.length} moves across 3 reach stackers and 1 empty handler, ranked by free-time urgency, detention cost, hazmat handling, order priority, dig-out cost, gate pressure, customs channel, empty-return windows, damage state and dwell — with every placement carrying a one-sentence reason.
+        </div>
+      )}
+
+      {/* ── Vessel schedule strip (seed mode only) ─────────────────────────── */}
+      {planSource === "seed" && (
+        <div
+          className="flex-none overflow-x-auto border-b border-[#e5e7eb] bg-white"
+          style={{ scrollbarWidth: "none" }}
+        >
+          <div className="flex gap-0 min-w-max">
+            {/* Label cell */}
+            <div className="flex items-center px-4 py-2 border-r border-[#e5e7eb] flex-none">
+              <span className="ds-label whitespace-nowrap">Vessel schedule</span>
+            </div>
+            {/* One card per vessel */}
+            {VESSEL_SCHEDULES.map(v => {
+              const onBoardSet = new Set(v.containersOnBoard)
+              const inPlan = moves.filter(m => onBoardSet.has(m.containerId)).length
+              const isHotVessel = hotContainerIds.size > 0 &&
+                v.containersOnBoard.some(id => hotContainerIds.has(id))
+              return (
+                <div
+                  key={v.voyage}
+                  className="flex items-center gap-4 px-4 py-2 border-r border-[#e5e7eb] flex-none"
+                  style={{ background: isHotVessel ? "#fff8f5" : undefined }}
+                >
+                  <div>
+                    <div className="text-[12px] font-semibold leading-tight whitespace-nowrap">
+                      {isHotVessel && <span className="mr-1">🔥</span>}
+                      {v.vesselName}
+                      <span className="ml-1.5 font-mono text-[10.5px] text-[#9ca3af]">{v.voyage}</span>
+                    </div>
+                    <div className="flex gap-3 mt-0.5 text-[10.5px] text-[#9ca3af]">
+                      <span>Berth <span className="font-mono text-[#374151]">{v.berthWindow}</span></span>
+                      <span>Cutoff <span className="font-mono text-[#374151]">{v.cutoffTime}</span></span>
+                      <span><span className="font-mono text-[#374151]">{inPlan}</span> moves in plan</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -567,7 +629,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                   ) : rows.map(m => (
                     <MoveRow
                       key={m.id}
-                      m={m}
+                      m={{ source: "seed", move: m }}
                       isSelected={m.id === sel}
                       onClick={() => { setSel(m.id); setTab("detail") }}
                     />
@@ -721,7 +783,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                   ) : engineMoves.map(m => (
                     <MoveRow
                       key={m.id}
-                      m={m as unknown as Move}
+                      m={{ source: "engine", move: m }}
                       isSelected={m.id === engineSel}
                       onClick={() => setEngineSel(m.id)}
                     />
@@ -738,24 +800,24 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 <div className="px-4 pt-3 pb-3">
                   <div className="ds-label">Move <span className="font-mono">#{engineSelMove.id}</span> · seq <span className="font-mono">{engineSelMove.seq}</span></div>
                   <div className="font-semibold text-base mt-1 tracking-tight">
-                    {REASON_LABELS[(engineSelMove as {reason?: string}).reason ?? ""] ?? (engineSelMove as {typeLabel?: string}).typeLabel ?? "Move"}
+                    {REASON_LABELS[engineSelMove.reason] ?? engineSelMove.typeLabel ?? "Move"}
                   </div>
                   <div className="text-[12px] mt-1 font-mono text-[#374151]">{engineSelMove.containerId}</div>
                   <div className="text-[12px] font-mono text-[#9ca3af]">{engineSelMove.from} → {engineSelMove.to}</div>
                 </div>
                 {/* WHY THIS MOVE callout for engine mode */}
-                {(engineSelMove as {reason?: string}).reason && (
+                {engineSelMove.reason && (
                   <div className="ds-callout mx-4 mb-3">
                     <div className="ds-callout-label">Why this move</div>
                     <div className="text-[12.5px] leading-relaxed">
-                      {REASON_LABELS[(engineSelMove as {reason?: string}).reason ?? ""] ?? (engineSelMove as {reason?: string}).reason}
+                      {REASON_LABELS[engineSelMove.reason] ?? engineSelMove.reason}
                     </div>
                   </div>
                 )}
                 {[
                   ["Jockey / operator", engineSelMove.operatorName],
                   ["Est. duration", engineSelMove.estMin.toFixed(1)+"′"],
-                  ["State", (engineSelMove as {stateLabel?: string}).stateLabel ?? "—"],
+                  ["State", engineSelMove.stateLabel ?? "—"],
                   ["Frozen", engineSelMove.frozen ? "yes" : "no"],
                 ].map(([k,v]) => (
                   <div key={k} className="flex justify-between gap-3 px-4 py-2 border-b border-[#f3f4f6] text-[11.5px]">

@@ -5,6 +5,7 @@ import type { Event } from "@/data/yard-ops"
 import { backendApi } from "@/lib/backend-api"
 import type { BackendDisruption, DisruptionType, BackendMove } from "@/lib/backend-api"
 import { computePlanDiff, slotAddressById, REASON_LABELS } from "@/lib/backend-adapters"
+import ContainerPicker from "@/components/ContainerPicker"
 
 interface Props {
   focus: string | null
@@ -196,11 +197,6 @@ export default function ControlTower({ focus, onNavigate }: Props) {
     }
   }
 
-  // ── Filtered container list for modal picker ──────────────────────────────
-  const containerOptions = backendContainers.filter(c =>
-    !modalSearch || c.container_number.toLowerCase().includes(modalSearch.toLowerCase())
-  ).slice(0, 20)
-
   // ── Active diff rows and stats (engine overrides seed) ────────────────────
   const activeDiffRows = engineDiffRows ?? diffRows
   const activeDiffStats = engineDiffStats ?? (selEvent ? selEvent.diff : null)
@@ -244,28 +240,12 @@ export default function ControlTower({ focus, onNavigate }: Props) {
                 <div className="ds-label mb-1">
                   Affected container <span className="normal-case text-neutral-400 tracking-normal">(optional)</span>
                 </div>
-                <input
-                  type="text"
+                <ContainerPicker
+                  containers={backendContainers}
+                  value={modalContainer}
+                  onChange={(id, display) => { setModalContainer(id); setModalSearch(display) }}
                   placeholder="Search container number…"
-                  value={modalSearch}
-                  onChange={e => { setModalSearch(e.target.value); setModalContainer("") }}
-                  className="w-full border border-[#e5e7eb] px-3 py-2 text-[12.5px] mb-1"
-                  style={{ borderRadius: 5 }}
                 />
-                {modalSearch && containerOptions.length > 0 && (
-                  <div className="border border-[#e5e7eb] max-h-28 overflow-auto" style={{ borderRadius: 5 }}>
-                    {containerOptions.map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => { setModalContainer(c.id); setModalSearch(c.container_number) }}
-                        className="block w-full text-left px-3 py-1 text-[12px] hover:bg-[#f9fafb]"
-                        style={{ background: modalContainer === c.id ? "#fef3f2" : undefined }}
-                      >
-                        <span className="font-mono">{c.container_number}</span> · <span className="font-mono">{c.size_ft}</span>ft · {c.status}
-                      </button>
-                    ))}
-                  </div>
-                )}
                 {backendContainers.length === 0 && (
                   <div className="text-[11px] text-neutral-400">No containers loaded from backend</div>
                 )}
