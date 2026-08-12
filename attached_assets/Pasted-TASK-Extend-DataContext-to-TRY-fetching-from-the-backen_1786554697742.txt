@@ -1,0 +1,88 @@
+TASK: Extend DataContext to TRY fetching from the backend planning engine, but keep seed data as the working fallback if the backend is unreachable.
+
+RULES:
+- DO NOT delete any existing seed data imports or seed data files.
+- DO NOT remove any existing state fields or their types.
+- DO NOT change any existing interface that other screens depend on.
+- ADD new fields alongside existing ones, never replace.
+- Every existing screen must continue working exactly as before after this change.
+
+STEP 1 — AUDIT: Read `src/lib/DataContext.tsx` completely. Print:
+  a) The full list of state fields in the context value
+  b) Every fetch call currently made on mount
+  c) The refresh() function signature and which slices it supports
+  d) The useData() hook return type
+  e) Every file that imports from DataContext (search for "useData" and "DataContext" across the whole src/ directory)
+
+STEP 2 — MODIFY DataContext.tsx:
+
+Add these NEW fields to the context state (do NOT remove existing fields):
+```typescript
+// NEW — backend-specific state (coexists with seed data)
+backendConnected: boolean;        // true if backend responded on mount
+activePlan: BackendPlanDetail | null;  // the most recent plan from the engine
+plans: BackendPlan[];             // plan history
+backendContainers: BackendContainer[];
+backendSlots: BackendYardSlot[];
+backendJockeys: BackendJockey[];
+backendWeights: BackendWeight[];
+orders: BackendOrder[];
+```
+
+Add these NEW action functions to the context:
+```typescript
+// NEW — planning engine actions
+generatePlan: (strategy?: SolveStrategy, timeBudget?: number) => Promise<BackendPlanDetail | null>;
+confirmPlan: (planId: number) => Promise<boolean>;
+createDisruption: (data: { event_type: DisruptionType; affected_container_id?: number; affected_jockey_id?: number; description: string }) => Promise<BackendDisruption | null>;
+updateWeights: (weights: { factor_name: string; weight: number }[]) => Promise<{ warnings: string[] } | null>;
+resetBackend: () => Promise<void>;
+```
+
+In the mount effect, AFTER the existing seed data is set, add a secondary fetch block:
+```typescript
+// --- Backend fetch (non-blocking, seed data already showing) ---
+try {
+  const [yardState, containers, jockeys, plansList, weights, ordersList] = await Promise.all([
+    backendApi.yard(),
+    backendApi.containers(),
+    backendApi.jockeys(),
+    backendApi.plans(),
+    backendApi.weights(),
+    backendApi.orders(),
+  ]);
+  // Load the most recent plan's detail if any plans exist
+  let activePlan: BackendPlanDetail | null = null;
+  if (plansList.length > 0) {
+    activePlan = await backendApi.plan(plansList[0].id);
+  }
+  setState(prev => ({
+    ...prev,
+    backendConnected: true,
+    backendSlots: yardState.slots,
+    backendContainers: containers,
+    backendJockeys: jockeys,
+    plans: plansList,
+    activePlan,
+    backendWeights: weights,
+    orders: ordersList,
+  }));
+} catch (err) {
+  console.warn("Backend unreachable, continuing with seed data:", err);
+  setState(prev => ({ ...prev, backendConnected: false }));
+}
+```
+
+Implement the action functions. Each one:
+1. Calls the backend via backendApi
+2. On success, updates only the relevant state slice
+3. On failure, logs the error and returns null/false — NEVER throws
+
+Add the refresh() function support for new slices ('plans', 'backendContainers', 'backendSlots', 'backendWeights').
+
+STEP 3 — VERIFY:
+- Run the app. Confirm it boots instantly with seed data (existing behavior preserved).
+- If backend is running: confirm backendConnected becomes true, new state fields populate.
+- If backend is NOT running: confirm the app still works exactly as before, no errors.
+- Open every screen (tower, plan, yard, gate, operator, settings) — confirm zero regressions.
+- Check the console for any new errors — there should be none.

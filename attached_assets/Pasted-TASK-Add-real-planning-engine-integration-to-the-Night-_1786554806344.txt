@@ -1,0 +1,51 @@
+TASK: Add real planning engine integration to the Night Planner screen. The existing seed-data move table must keep working. The new engine features are ADDED alongside.
+
+RULES:
+- DO NOT delete the existing move table, filters, Gantt strip, or detail panel.
+- DO NOT remove the seed moves from the display — they remain as the default view.
+- ADD a new section/mode that shows backend-generated plans.
+- Use the backend-adapters to convert BackendMove[] into the display format the existing table expects.
+
+STEP 1 — AUDIT: Read `src/screens/NightPlanner.tsx` completely. Print:
+  a) Every prop and context value it reads (from useData)
+  b) The exact type/shape of the move objects it renders in the table (list every field the table cells access)
+  c) The column headers and what field each column reads
+  d) The existing action buttons (Configure, Regenerate, Approve & Publish) and what they do
+  e) The detail panel — what fields it shows for a selected move
+  f) Every imported module
+
+STEP 2 — ADD to NightPlanner.tsx:
+
+2a) Add a "Plan source" toggle at the top of the screen:
+  - Two options: "Seed data (static)" and "Planning engine (live)"
+  - Default to "Seed data" so the existing view is unchanged
+  - Store the selection in local component state
+
+2b) When "Planning engine" is selected:
+  - Read `activePlan`, `backendContainers`, `backendSlots`, `backendJockeys` from DataContext
+  - If activePlan is null, show a card: "No plan generated yet" with a "Generate plan" button
+  - If activePlan exists, show:
+    * A status bar with: Plan #{id} • Status badge (draft/confirmed/in_progress/superseded) • "Solved in {solve_seconds}s" • Solver status ({solver_status}) • Gap: {gap_percent}% • {moves.length} moves
+    * The move table, populated by mapping activePlan.moves through adaptMoveForDisplay()
+    * The existing table columns work because adaptMoveForDisplay() produces the same field names
+
+2c) Add a "Generate plan" button (only in "Planning engine" mode):
+  - Calls generatePlan() from DataContext
+  - Shows a loading state: "Solver running..." with a spinner
+  - On success, the activePlan updates and the table repopulates
+
+2d) Add a "Confirm plan" button (only when activePlan.status === "draft"):
+  - Calls confirmPlan(activePlan.id)
+  - On success, the status badge updates to "confirmed"
+
+2e) Add a "Plan history" dropdown:
+  - Lists plans from DataContext (plans array)
+  - Selecting a plan fetches its detail and replaces activePlan display
+
+STEP 3 — VERIFY:
+- Default view ("Seed data") must look and work EXACTLY as before. Zero visual changes.
+- Switch to "Planning engine" — confirm it shows backend data or "No plan" message.
+- If backend is unreachable, the toggle should show "Backend unavailable" and stay on seed data.
+- Generate a plan — confirm the spinner shows, then the result appears.
+- Confirm the move table columns still align, no NaN/undefined values.
+- Switch back to "Seed data" — confirm the original seed moves are still there.

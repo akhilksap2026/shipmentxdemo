@@ -1,0 +1,48 @@
+TASK: Add the real Regime A weight system to the Settings screen, alongside the existing weight sliders.
+
+RULES:
+- DO NOT delete the existing "Plan weights" tab content.
+- ADD a new tab or section labeled "Priority factors (engine)" that shows the real backend weights.
+- The existing sliders can stay as a reference; users will migrate to the new system.
+
+STEP 1 — AUDIT: Read `src/screens/Settings.tsx` completely. Print:
+  a) The tab structure (how many tabs, what each contains)
+  b) The current weight sliders — what factors they control, what values they use
+  c) How the "commit" button works — what API does it call, what state does it update
+  d) Every imported module
+
+STEP 2 — ADD to Settings.tsx:
+
+2a) Add a new tab "Priority factors" (insert it after the existing "Plan weights" tab, don't replace it):
+  - Read `backendWeights` and `backendConnected` from DataContext
+  - If not connected, show: "Backend not available — using static weights"
+
+2b) When connected, render the 13 factors from backendWeights:
+  - For each factor where is_hard_constraint === false (11 factors):
+    * Row with: humanized factor name, slider (0-50 range, step 0.5), numeric value, transform type badge, source field label
+    * Slider onChange updates local state only (not backend yet)
+  - For each factor where is_hard_constraint === true (2 factors):
+    * Row with lock icon, factor name, "Hard constraint — always enforced" label
+    * No slider, not editable
+  - Running total bar at the bottom showing sum of all 11 weights
+    * Green background if sum is exactly 100
+    * Yellow if 95-105
+    * Red if outside 90-110
+
+2c) Add a "Save weights" button that:
+  - Calls updateWeights() from DataContext with all 11 weighted factor values
+  - Shows any warnings from the response in a yellow banner
+  - Shows a success toast on completion
+  - The button is disabled while sum < 90 or sum > 110
+
+2d) Add a "Reset to defaults" button that sets the sliders to:
+  detention_critical=20, detention_horizon=11, appointment_pressure=18, customer_priority=12,
+  order_priority=9, dwell_age=7, reefer_power_gap=6, damage_flag=5, rehandle_debt=5,
+  empty_return=4, vessel_cutoff=3
+
+STEP 3 — VERIFY:
+- The existing "Plan weights" tab must look and work EXACTLY as before.
+- The new "Priority factors" tab shows 13 rows with correct data from the backend.
+- Sliders move and the sum updates in real time.
+- Save button calls the API and shows feedback.
+- If backend is down, the tab shows a graceful fallback message.

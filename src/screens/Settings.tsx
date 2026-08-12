@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useData } from "@/lib/DataContext"
 
 const FACTORS = [
   { k:"Detention urgency", w:30, scoring:"clamp(0,100,(1 − hoursToLFD/72)×100); breached ⇒ 100" },
@@ -27,7 +28,49 @@ const ADAPTERS = [
   { name:"Weather (wind)", mechanism:"Weather API", state:"HEALTHY", lag:"5 min", dlq:0, recon:"n/a", note:"Feeds hard constraint C11" }
 ]
 
+// ── Priority factor helpers ────────────────────────────────────────────────────
+
+/** Human-readable labels for backend factor_name keys */
+const FACTOR_LABELS: Record<string, string> = {
+  detention_critical:   "Detention critical (LFD breach)",
+  detention_horizon:    "Detention horizon (approaching LFD)",
+  appointment_pressure: "Gate / appointment pressure",
+  customer_priority:    "Customer priority",
+  order_priority:       "Order priority",
+  dwell_age:            "Dwell age",
+  reefer_power_gap:     "Reefer power gap",
+  damage_flag:          "Damage / quarantine flag",
+  rehandle_debt:        "Rehandle debt (dig-out cost)",
+  empty_return:         "Empty-return window",
+  vessel_cutoff:        "Vessel cut-off proximity",
+}
+
+const DEFAULT_WEIGHTS: Record<string, number> = {
+  detention_critical:   20,
+  detention_horizon:    11,
+  appointment_pressure: 18,
+  customer_priority:    12,
+  order_priority:       9,
+  dwell_age:            7,
+  reefer_power_gap:     6,
+  damage_flag:          5,
+  rehandle_debt:        5,
+  empty_return:         4,
+  vessel_cutoff:        3,
+}
+
+function humanize(name: string): string {
+  return FACTOR_LABELS[name] ?? name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+}
+
+type SaveStatus = "idle" | "saving" | "success" | "error"
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function SettingsScreen() {
+  const { backendConnected, backendWeights, updateWeights } = useData()
+
+  // ── Existing plan-weights tab state (unchanged) ────────────────────────────
   const [tab, setTab] = useState("plan")
   const [weights, setWeights] = useState(FACTORS.map(f=>f.w))
   const [committed, setCommitted] = useState(false)
@@ -36,9 +79,71 @@ export default function SettingsScreen() {
   const [bonded, setBonded] = useState(false)
   const [dropGo, setDropGo] = useState(true)
 
+  // ── New priority-factors tab state ────────────────────────────────────────
+  const [localWeights, setLocalWeights] = useState<Record<string, number>>(DEFAULT_WEIGHTS)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  const [saveWarnings, setSaveWarnings] = useState<string[]>([])
+
+  // Initialise local sliders from backend weights when they arrive
+  useEffect(() => {
+    if (backendWeights.length === 0) return
+    const init: Record<string, number> = {}
+    for (const w of backendWeights) {
+      if (!w.is_hard_constraint) init[w.factor_name] = w.weight
+    }
+    if (Object.keys(init).length > 0) setLocalWeights(init)
+  }, [backendWeights])
+
+  const softFactors = backendWeights.filter(w => !w.is_hard_constraint)
+  const hardFactors = backendWeights.filter(w => w.is_hard_constraint)
+
+  const weightSum = softFactors.reduce((acc, f) => acc + (localWeights[f.factor_name] ?? f.weight), 0)
+  const sumOk    = Math.abs(weightSum - 100) < 0.001
+  const sumWarn  = weightSum >= 95 && weightSum <= 105
+  const sumValid = weightSum >= 90 && weightSum <= 110
+
+  const sumBg    = sumOk ? "#d1fae5" : sumWarn ? "#fef9c3" : "#fee2e2"
+  const sumColor = sumOk ? "#065f46" : sumWarn ? "#854d0e" : "#9b1c1c"
+
+  async function handleSave() {
+    setSaveStatus("saving")
+    setSaveWarnings([])
+    try {
+      const payload = softFactors.map(f => ({
+        factor_name: f.factor_name,
+        weight: localWeights[f.factor_name] ?? f.weight,
+      }))
+      const result = await updateWeights(payload)
+      if (result) {
+        setSaveWarnings(result.warnings)
+        setSaveStatus("success")
+      } else {
+        setSaveStatus("error")
+      }
+    } catch {
+      setSaveStatus("error")
+    }
+    setTimeout(() => setSaveStatus(prev => prev !== "idle" ? "idle" : "idle"), 4000)
+  }
+
+  function handleReset() {
+    setLocalWeights({ ...DEFAULT_WEIGHTS })
+    setSaveStatus("idle")
+    setSaveWarnings([])
+  }
+
+  // ── Shared helpers (unchanged) ────────────────────────────────────────────
   const dirty = weights.some((w,i)=>w!==FACTORS[i].w)
   const stateColor = (st: string) => st==="HEALTHY"?"text-neutral-800":st==="DEGRADED"?"text-[#d9291c]":"text-neutral-400"
   const stateVariant = (st: string): "green"|"red"|"muted" => st==="HEALTHY"?"green":st==="DEGRADED"?"red":"muted"
+
+  const TABS = [
+    ["plan",      "Plan weights"],
+    ["priority",  "Priority factors"],
+    ["integrations","Integrations"],
+    ["data",      "Master data"],
+    ["roles",     "Roles"],
+  ]
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-auto bg-white text-neutral-900">
@@ -49,7 +154,7 @@ export default function SettingsScreen() {
           <span className="text-[11px] text-neutral-500">Objective weights, master data, adapters, roles, degraded mode — every operator-relevant switch in one place</span>
         </div>
         <div className="flex ml-3">
-          {[["plan","Plan weights"],["integrations","Integrations"],["data","Master data"],["roles","Roles"]].map(([k,label],i,arr)=>(
+          {TABS.map(([k,label],i,arr)=>(
             <button key={k} onClick={()=>setTab(k)}
               className="text-[11.5px] px-3.5 py-1.5 border border-neutral-300 font-bold transition-colors"
               style={{ borderRight:i<arr.length-1?"none":undefined, background:tab===k?"#201e1d":"transparent", color:tab===k?"#fff":"#201e1d" }}>
@@ -60,6 +165,7 @@ export default function SettingsScreen() {
         <div className="ml-auto text-[11px] text-neutral-500">Changes are audited · commit lands on the next generation</div>
       </div>
 
+      {/* ── Plan weights tab (unchanged) ───────────────────────────────────── */}
       {tab==="plan" && (
         <div className="grid flex-1 min-h-0 overflow-auto" style={{gridTemplateColumns:"minmax(360px,1fr) clamp(280px,28vw,380px)"}}>
           <div className="border-r-2 border-neutral-200 overflow-auto pb-4">
@@ -117,6 +223,182 @@ export default function SettingsScreen() {
         </div>
       )}
 
+      {/* ── Priority factors tab (new) ─────────────────────────────────────── */}
+      {tab==="priority" && (
+        <div className="flex-1 min-h-0 overflow-auto">
+
+          {/* Backend unavailable fallback */}
+          {!backendConnected && (
+            <div className="px-5 py-6">
+              <div className="border border-neutral-300 bg-neutral-50 px-5 py-5 max-w-lg">
+                <div className="font-black text-[15px] mb-1.5">Backend not available</div>
+                <div className="text-[12.5px] text-neutral-600 leading-relaxed">
+                  The planning engine is unreachable — using static weights from the seed configuration.
+                  Start the backend to manage live Regime A priority factors here.
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2.5">
+                  {Object.entries(DEFAULT_WEIGHTS).map(([k, v]) => (
+                    <div key={k} className="border border-neutral-300 px-2.5 py-1.5 min-w-[140px]">
+                      <div className="text-[10px] text-neutral-500">{humanize(k)}</div>
+                      <div className="text-[13px] font-bold tabular">{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Connected — live weight editor */}
+          {backendConnected && (
+            <div className="grid" style={{gridTemplateColumns:"minmax(400px,1fr) clamp(260px,26vw,340px)"}}>
+
+              {/* Left — factor rows */}
+              <div className="border-r-2 border-neutral-200 pb-6 overflow-auto">
+                <div className="px-5 pt-3 pb-1 flex items-baseline justify-between">
+                  <div className="text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Soft factors — weighted (0 – 50)</div>
+                  <div className="text-[10px] text-neutral-400">{softFactors.length} factors</div>
+                </div>
+
+                {softFactors.map(f => {
+                  const val = localWeights[f.factor_name] ?? f.weight
+                  return (
+                    <div key={f.factor_name} className="px-5 py-2.5 border-b border-neutral-200">
+                      <div className="flex justify-between items-baseline text-[12px]">
+                        <span className="font-semibold">{humanize(f.factor_name)}</span>
+                        <div className="flex items-center gap-2">
+                          {f.transform_type && (
+                            <span className="text-[9px] px-1.5 py-0.5 bg-neutral-100 border border-neutral-300 text-neutral-500 uppercase tracking-wider font-bold">
+                              {f.transform_type}
+                            </span>
+                          )}
+                          <span className={`tabular font-bold w-8 text-right ${val !== f.weight ? "text-[#d9291c]" : "text-neutral-500"}`}>
+                            {val % 1 === 0 ? val : val.toFixed(1)}
+                          </span>
+                        </div>
+                      </div>
+                      <input
+                        type="range" min={0} max={50} step={0.5} value={val}
+                        onChange={e => setLocalWeights(prev => ({ ...prev, [f.factor_name]: +e.target.value }))}
+                        className="w-full mt-1.5 accent-[#d9291c]"
+                      />
+                      {f.source_field && (
+                        <div className="text-[10.5px] text-neutral-400 mt-0.5">source: {f.source_field}</div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {hardFactors.length > 0 && (
+                  <>
+                    <div className="px-5 pt-4 pb-1 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Hard constraints — always enforced</div>
+                    {hardFactors.map(f => (
+                      <div key={f.factor_name} className="px-5 py-3 border-b border-neutral-200 flex items-center gap-3">
+                        <span className="text-neutral-400 text-base select-none" title="Hard constraint — locked">🔒</span>
+                        <div className="flex-1">
+                          <div className="text-[12px] font-semibold">{humanize(f.factor_name)}</div>
+                          <div className="text-[10.5px] text-neutral-500">Hard constraint — always enforced · not configurable</div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* Weight sum bar */}
+                <div className="px-5 pt-4 pb-1">
+                  <div className="flex justify-between text-[11.5px] mb-1.5">
+                    <span className="font-bold">Weight total</span>
+                    <span
+                      className="tabular font-black text-[15px]"
+                      style={{ color: sumColor }}
+                    >
+                      {weightSum % 1 === 0 ? weightSum : weightSum.toFixed(1)}
+                      <span className="text-[11px] font-normal text-neutral-400"> / 100</span>
+                    </span>
+                  </div>
+                  <div className="h-3 bg-neutral-200 relative overflow-hidden">
+                    <div
+                      className="h-3 transition-all"
+                      style={{
+                        width: Math.min(100, (weightSum / 110) * 100).toFixed(1) + "%",
+                        background: sumBg === "#d1fae5" ? "#10b981" : sumBg === "#fef9c3" ? "#f59e0b" : "#ef4444",
+                      }}
+                    />
+                  </div>
+                  <div className="text-[10.5px] mt-1" style={{ color: sumColor }}>
+                    {sumOk
+                      ? "✓ Weights sum to exactly 100"
+                      : sumWarn
+                      ? `Within tolerance (90–110 accepted) — ${weightSum < 100 ? (100 - weightSum).toFixed(1) + " short" : (weightSum - 100).toFixed(1) + " over"}`
+                      : `Outside acceptable range (90–110) — save disabled`}
+                  </div>
+                </div>
+
+                {/* Warning banner */}
+                {saveWarnings.length > 0 && (
+                  <div className="mx-5 mt-3 px-3.5 py-3 bg-amber-50 border border-amber-300 text-[12px] text-amber-900 leading-relaxed">
+                    <div className="font-bold mb-1">Warnings from the engine</div>
+                    {saveWarnings.map((w, i) => <div key={i}>• {w}</div>)}
+                  </div>
+                )}
+
+                {/* Success toast */}
+                {saveStatus === "success" && (
+                  <div className="mx-5 mt-3 px-3.5 py-3 bg-emerald-50 border border-emerald-300 text-[12px] text-emerald-900 font-semibold">
+                    ✓ Weights saved to the planning engine
+                  </div>
+                )}
+                {saveStatus === "error" && (
+                  <div className="mx-5 mt-3 px-3.5 py-3 bg-red-50 border border-[#d9291c] text-[12px] text-[#9b1c1c] font-semibold">
+                    Save failed — check console for details
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="px-5 pt-4 pb-2 flex gap-2">
+                  <Button
+                    size="sm"
+                    className="text-xs"
+                    onClick={handleSave}
+                    disabled={!sumValid || saveStatus === "saving"}
+                  >
+                    {saveStatus === "saving" ? "Saving…" : "Save weights"}
+                  </Button>
+                  <Button variant="secondary" size="sm" className="text-xs" onClick={handleReset}>
+                    Reset to defaults
+                  </Button>
+                </div>
+                <div className="px-5 pb-4 text-[10.5px] text-neutral-400 leading-relaxed">
+                  Save is disabled when the total falls outside 90–110. Changes are applied to the next plan generation.
+                </div>
+              </div>
+
+              {/* Right — factor metadata */}
+              <div className="overflow-auto px-4 py-3">
+                <div className="text-[10px] tracking-widest uppercase text-neutral-500 font-bold mb-2">Factor details</div>
+                {backendWeights.map(f => (
+                  <div key={f.factor_name} className="py-2 border-b border-neutral-200 text-[11.5px]">
+                    <div className="font-semibold">{humanize(f.factor_name)}</div>
+                    <div className="text-neutral-500 text-[10.5px] mt-0.5 space-y-0.5">
+                      {f.is_hard_constraint && <div className="text-amber-700 font-bold">Hard constraint</div>}
+                      {f.source_field && <div>Source: <span className="font-mono text-[10px]">{f.source_field}</span></div>}
+                      {f.transform_type && <div>Transform: {f.transform_type}</div>}
+                      {f.null_default != null && <div>Null default: {f.null_default}</div>}
+                      <div className="text-neutral-400">
+                        Updated {new Date(f.updated_at).toLocaleDateString()} by {f.updated_by}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {backendWeights.length === 0 && (
+                  <div className="text-[12px] text-neutral-400 py-4">Loading weight configuration…</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Integrations tab (unchanged) ──────────────────────────────────── */}
       {tab==="integrations" && (
         <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full border-collapse text-[12px]">
@@ -168,6 +450,7 @@ export default function SettingsScreen() {
         </div>
       )}
 
+      {/* ── Master data tab (unchanged) ───────────────────────────────────── */}
       {tab==="data" && (
         <div className="flex-1 min-h-0 overflow-auto px-5 py-4">
           <div className="text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Master data</div>
@@ -206,6 +489,7 @@ export default function SettingsScreen() {
         </div>
       )}
 
+      {/* ── Roles tab (unchanged) ─────────────────────────────────────────── */}
       {tab==="roles" && (
         <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full border-collapse text-[12px]">
