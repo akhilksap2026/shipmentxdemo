@@ -75,7 +75,9 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
 
   useEffect(() => {
     if (!focus) return
-    const m = moves.find(x => x.containerId === focus)
+    // Match by move ID first (e.g. "MV-1032"), then by container ID
+    const m = moves.find(x => x.id === focus)
+      || moves.find(x => x.containerId === focus)
     if (m) { setSel(m.id); setTab("detail"); setFilter("ALL"); setQ("") }
     else { setQ(focus); setFilter("ALL"); setSel(""); setTab("detail") }
   }, [focus, moves])

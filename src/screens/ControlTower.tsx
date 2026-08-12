@@ -20,7 +20,9 @@ export default function ControlTower({ focus }: Props) {
 
   useEffect(() => {
     if (!focus) return
-    const e = events.find(x => x.title.includes(focus)||x.detail.includes(focus))
+    // Match by event ID first (e.g. "EV-7741"), then fall back to title/detail substring
+    const e = events.find(x => x.id === focus)
+      || events.find(x => x.title.includes(focus) || x.detail.includes(focus))
     if (e) setSel(e.id)
   }, [focus, events])
 

@@ -28,7 +28,9 @@ export default function GateConsole({ focus }: Props) {
 
   useEffect(() => {
     if (!focus) return
-    const v = visits.find(x => x.container === focus)
+    // Match by visit ID first (e.g. "V-2043"), then by container ID
+    const v = visits.find(x => x.id === focus)
+      || visits.find(x => x.container === focus)
     if (v) { setSel(v.id); setTab("visits") }
   }, [focus, visits])
 

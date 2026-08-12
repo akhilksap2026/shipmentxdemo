@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DataProvider, useData } from "@/lib/DataContext"
@@ -8,6 +8,7 @@ import GateConsole from "@/screens/GateConsole"
 import ControlTower from "@/screens/ControlTower"
 import OperatorTablet from "@/screens/OperatorTablet"
 import SettingsScreen from "@/screens/Settings"
+import CommandPalette from "@/components/CommandPalette"
 
 type Screen = "plan" | "yard" | "gate" | "tower" | "operator" | "settings"
 type Persona = "manager" | "ops" | "operator"
@@ -54,6 +55,19 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("plan")
   const [focus, setFocus] = useState<string | null>(null)
   const [storyIdx, setStoryIdx] = useState(0)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // ⌘K / Ctrl+K global shortcut
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        setPaletteOpen(v => !v)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 
   const story = STORY[storyIdx]
   const p = PERSONAS.find(x => x.id === persona)!
@@ -82,6 +96,11 @@ export default function App() {
 
   return (
     <DataProvider>
+    <CommandPalette
+      open={paletteOpen}
+      onClose={() => setPaletteOpen(false)}
+      onNavigate={(target, f) => { navigate(target, f); setPaletteOpen(false) }}
+    />
     <div className="grid h-screen" style={{ gridTemplateColumns: "232px minmax(0,1fr)", gridTemplateRows: "48px 34px minmax(0,1fr)" }}>
 
       {/* Sidebar */}
@@ -96,11 +115,14 @@ export default function App() {
         </div>
         {/* Search */}
         <div className="px-3 py-2.5">
-          <div className="flex items-center gap-2 bg-sidebar-active border border-[#253656] px-2 py-1.5 text-[11.5px] text-sidebar-faint">
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="w-full flex items-center gap-2 bg-sidebar-active border border-[#253656] px-2 py-1.5 text-[11.5px] text-sidebar-faint hover:border-[#4a6080] transition-colors"
+          >
             <span className="opacity-70">⌕</span>
             <span>Search container, plate, order…</span>
             <span className="ml-auto text-[10px] text-[#5c6c8a]">⌘K</span>
-          </div>
+          </button>
         </div>
         {/* Nav */}
         {NAV_GROUPS.map(g => (
