@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useData } from "@/lib/DataContext"
 import type { Container, Zone } from "@/data/yard-data"
 import { backendApi } from "@/lib/backend-api"
 import type { BackendContainerDetail, BackendForecast } from "@/lib/backend-api"
+import PhysicalYardMap from "@/components/yard/PhysicalYardMap"
+import { computeBlockLayouts } from "@/lib/yard-layout"
 
 interface Props {
   focus: string | null
@@ -183,6 +185,9 @@ export default function YardMap({ focus, onNavigate }: Props) {
     return first?.id || null
   })
 
+  // ── Physical map state ───────────────────────────────────────────────────
+  const [selectedBlockLabel, setSelectedBlockLabel] = useState<string | null>(null)
+
   // ── New live-yard state ───────────────────────────────────────────────────
   const [dataSource,   setDataSource]   = useState<DataSource>("seed")
   const [liveBlock,    setLiveBlock]    = useState<string | null>(null)
@@ -297,6 +302,36 @@ export default function YardMap({ focus, onNavigate }: Props) {
       setLoadingFcast(false)
     }
   }
+
+  // ── Physical map layouts (seed) ───────────────────────────────────────────
+  const blockLayouts = useMemo(() => computeBlockLayouts(zones, containers), [zones, containers])
+
+  // Zone name map for tooltips
+  const zoneNames = useMemo(() =>
+    Object.fromEntries(zones.map(z => [z.id, z.name])),
+  [zones])
+
+  // ── Computed KPI values ───────────────────────────────────────────────────
+  const seedContainers  = useMemo(() => containers.filter(c => !"RS".includes(c.zone)), [containers])
+  const totalCapacity   = useMemo(() =>
+    zones.filter(z => !"RS".includes(z.id))
+         .reduce((s, z) => s + z.blocks * z.rows * z.slots * z.maxTiers, 0),
+  [zones])
+  const occupancyPct    = totalCapacity > 0 ? Math.round(seedContainers.length / totalCapacity * 100) : 0
+  const totalTEU        = useMemo(() =>
+    seedContainers.reduce((s, c) => s + (c.size.startsWith("40") ? 2 : 1), 0),
+  [seedContainers])
+  const avgTier         = seedContainers.length > 0
+    ? (seedContainers.reduce((s, c) => s + c.tier, 0) / seedContainers.length).toFixed(1)
+    : "—"
+  const totalBlocks     = useMemo(() =>
+    zones.filter(z => !"RS".includes(z.id)).reduce((s, z) => s + z.blocks, 0),
+  [zones])
+  const totalZones      = zones.filter(z => !"RS".includes(z.id)).length
+
+  // Detail panel data for selected block
+  const selectedLayout  = blockLayouts.find(l => l.label === selectedBlockLabel) ?? null
+  const selectedZoneDef = selectedLayout ? zones.find(z => z.id === selectedLayout.zone) : null
 
   // ── Seed-mode derived data (unchanged) ────────────────────────────────────
   const zoneDef: Zone = zones.find(z => z.id === zone) || zones[0] || { id:"A", name:"", blocks:6, rows:3, slots:10, maxTiers:4, ceiling:0.85, hazmat:false, customs:false }
@@ -417,142 +452,128 @@ export default function YardMap({ focus, onNavigate }: Props) {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          SEED MAP MODE — unchanged
+          SEED MAP MODE — physical yard canvas
           ════════════════════════════════════════════════════════════════ */}
       {view==="map" && !isLive && (
         <>
-          {/* KPI bar */}
+          {/* KPI bar — computed from seed data */}
           <div className="flex flex-wrap border-b-2 border-neutral-200 flex-none">
-            {[{k:"Truck turn P50",v:"13.8′",sub:"target 15′"},{k:"Job cycle P50",v:"4.9′",sub:"target 5′"},{k:"Occupancy",v:"72%",sub:"ceiling 85%"},{k:"Detention at risk 72 h",v:"$8.4k",sub:"31 containers",red:true},{k:"Plan adherence",v:"89%",sub:"target ≥85%"}].map(m=>(
+            {([
+              { k:"Occupancy",             v:`${occupancyPct}%`,          sub:`${seedContainers.length} of ${totalCapacity} slots · ceiling 85%`, red: occupancyPct > 85 },
+              { k:"TEU on terminal",       v:String(totalTEU),            sub:`${seedContainers.length} units` },
+              { k:"Avg stack height",      v:`${avgTier} tiers`,          sub:"across all blocks" },
+              { k:"Blocks · Zones",        v:`${totalBlocks} · ${totalZones}`, sub:"in physical yard" },
+              { k:"Detention at risk 72 h",v:"$8.4k",                    sub:"31 containers", red: true },
+            ] as { k:string; v:string; sub:string; red?:boolean }[]).map(m => (
               <div key={m.k} className="flex-1 basis-36 px-5 py-2.5 border-r border-neutral-200 flex flex-col gap-0.5">
                 <span className="ds-label text-neutral-500">{m.k}</span>
                 <div className="flex items-baseline gap-2">
-                  <span className={`font-black text-[19px] leading-none tracking-tight ${m.red?"text-[#dc2626]":""}`}>{m.v}</span>
+                  <span className={`font-black text-[19px] leading-none tracking-tight ${m.red ? "text-[#dc2626]" : ""}`}>{m.v}</span>
                   <span className="text-[11px] text-neutral-500">{m.sub}</span>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="grid flex-1 min-h-0 overflow-auto" style={{gridTemplateColumns:"clamp(180px,16vw,230px) minmax(360px,1fr) clamp(260px,25vw,350px)"}}>
-            {/* Zone list */}
-            <div className="border-r-2 border-neutral-200 overflow-auto">
-              <div className="px-4 pt-3 pb-2 text-[10px] tracking-widests uppercase text-neutral-500 font-bold">Zones · occupancy vs ceiling</div>
-              {mapZones.map(({z,pct,over,used,cap})=>(
-                <button key={z.id} onClick={()=>{setZone(z.id);setBlock(1);setRow(1)}}
-                  className="block w-full text-left px-4 py-2.5 hover:bg-neutral-50 transition-colors"
-                  style={{ borderLeft:`3px solid ${zone===z.id?"#dc2626":"transparent"}`, background:zone===z.id?"#fef3f2":undefined }}>
-                  <div className="flex justify-between text-[12px] font-semibold">
-                    <span>{z.name.replace("Zone ","").replace(" — "," · ")}</span>
-                    <span className={`tabular ${over?"text-[#dc2626]":"text-neutral-500"}`}>{pct}%</span>
-                  </div>
-                  <div className="relative h-1 bg-neutral-200 mt-1.5">
-                    <div className="absolute left-0 top-0 h-1" style={{background:over?"#dc2626":"#374151",width:pct+"%"}} />
-                    <div className="absolute top-[-2px] h-2 w-0.5 bg-neutral-900" style={{left:Math.round(z.ceiling*100)+"%"}} />
-                  </div>
-                  <div className="text-[10.5px] text-neutral-500 mt-1">{used} of {cap} slots · ceiling {Math.round(z.ceiling*100)}%</div>
-                </button>
-              ))}
-            </div>
+          {/* Physical yard map + floating block detail */}
+          <div className="flex flex-1 min-h-0 relative overflow-hidden">
+            <PhysicalYardMap
+              layouts={blockLayouts}
+              selectedBlock={selectedBlockLabel}
+              onSelectBlock={setSelectedBlockLabel}
+              zoneNames={zoneNames}
+            />
 
-            {/* Block grid + front view */}
-            <div className="flex flex-col min-h-0 overflow-auto">
-              <div className="px-4 pt-3 pb-1.5 flex items-baseline gap-2.5 flex-none">
-                <span className="text-[10px] tracking-widests uppercase text-neutral-500 font-bold">Blocks · {zoneDef.name}</span>
-                <span className="text-[11px] text-neutral-500">click a block · scroll to zoom · drag to pan</span>
-              </div>
-              <ZoomableBlockGrid blocks={blocks} selectedBlock={block} onSelectBlock={(b)=>{setBlock(b);setRow(1)}} />
-              <div className="border-t-2 border-neutral-200 px-4 pt-3 pb-1.5 flex items-baseline gap-3 flex-wrap">
-                <span className="text-[10px] tracking-widests uppercase text-neutral-500 font-bold">
-                  Front view · block {zoneDef.id}-{String(block).padStart(2,"00")}
-                </span>
-                <div className="flex">
-                  {Array.from({length:zoneDef.rows},(_,i)=>i+1).map((r,i,arr)=>(
-                    <button key={r} onClick={()=>setRow(r)}
-                      className="text-[10.5px] px-2.5 py-1 border border-neutral-300 font-semibold"
-                      style={{ borderRight:i<arr.length-1?"none":undefined, background:row===r?"#201e1d":"transparent", color:row===r?"#fff":"#333" }}>
-                      Row {r}
-                    </button>
-                  ))}
+            {/* Floating block detail panel */}
+            {selectedBlockLabel && selectedLayout && (
+              <div
+                className="absolute right-0 top-0 bottom-0 overflow-auto bg-white border-l-2 border-neutral-200 flex flex-col"
+                style={{ width: 268 }}
+              >
+                {/* Header */}
+                <div className="px-4 pt-3.5 pb-3 border-b border-neutral-200 flex-none">
+                  <div className="ds-label text-neutral-500">Block</div>
+                  <div className="font-black text-[22px] tracking-tight mt-0.5">{selectedLayout.label}</div>
+                  <div className="text-[12px] text-neutral-600 mt-0.5">{selectedZoneDef?.name ?? selectedLayout.zone}</div>
                 </div>
-                <span className="text-[11px] text-neutral-500">row {row} of {zoneDef.rows} · max tier {zoneDef.maxTiers}</span>
-              </div>
-              <div className="px-4 pb-4 overflow-auto">
-                {tiers.map(({tier,cells})=>(
-                  <div key={tier} className="flex items-stretch gap-0.5 mb-0.5">
-                    <span className="w-9 text-[10px] text-neutral-500 self-center">T{tier}</span>
-                    {cells.map(({c,bg,border,fg,cursor,dim},i)=>(
-                      <button key={i} onClick={()=>c&&setSel(c.id)}
-                        className="flex-1 min-w-[52px] h-9 border text-[9.5px] flex flex-col justify-center items-start px-1.5 gap-px hover:outline hover:outline-2 hover:outline-[#dc2626] transition-all"
-                        style={{background:bg,borderColor:border,color:fg,cursor,opacity:dim?0.3:1}}>
-                        {c && <><span className="font-bold">{c.id.slice(0,4)}</span><span className="opacity-75">{c.id.slice(4)} · {c.hoursToLFD<0?"−"+Math.abs(c.hoursToLFD):c.hoursToLFD}h</span></>}
-                      </button>
-                    ))}
+
+                {/* Stats */}
+                {([
+                  ["Occupancy",       `${selectedLayout.occupancyPct}%`, selectedLayout.occupancyPct > 85],
+                  ["Containers",       String(selectedLayout.containerCount)],
+                  ["Capacity (slots)", String(selectedLayout.capacity)],
+                  ["Zone ceiling",     selectedZoneDef ? `${Math.round(selectedZoneDef.ceiling * 100)}%` : "—"],
+                  ["Hazmat approved",  selectedZoneDef?.hazmat ? "Yes" : "No"],
+                  ["Customs zone",     selectedZoneDef?.customs ? "Yes" : "No"],
+                ] as [string, string, boolean?][]).map(([k, v, red]) => (
+                  <div key={k} className="flex justify-between gap-3 px-4 py-2.5 border-b border-neutral-200 text-[11.5px]">
+                    <span className="text-neutral-500">{k}</span>
+                    <span className={`font-semibold ${red ? "text-[#dc2626]" : ""}`}>{v}</span>
                   </div>
                 ))}
-                <div className="flex gap-0.5 mt-1">
-                  <span className="w-9" />
-                  {Array.from({length:zoneDef.slots},(_,i)=>(
-                    <span key={i} className="flex-1 min-w-[52px] text-[9.5px] text-neutral-500">S{i+1}</span>
-                  ))}
+
+                {/* Occupancy bar */}
+                <div className="px-4 py-3 border-b border-neutral-200">
+                  <div className="ds-label text-neutral-500 mb-1.5">Fill level</div>
+                  <div className="relative h-2 bg-neutral-100" style={{ borderRadius: 3 }}>
+                    <div
+                      style={{
+                        position: "absolute", left: 0, top: 0, bottom: 0,
+                        width: `${selectedLayout.occupancyPct}%`,
+                        background: selectedLayout.occupancyPct > 85 ? "#dc2626" : selectedLayout.occupancyPct > 70 ? "#f59e0b" : "#16a34a",
+                        borderRadius: 3,
+                      }}
+                    />
+                    {/* Ceiling tick */}
+                    {selectedZoneDef && (
+                      <div
+                        className="absolute top-[-3px] bottom-[-3px] w-0.5 bg-neutral-700"
+                        style={{ left: `${Math.round(selectedZoneDef.ceiling * 100)}%` }}
+                      />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-neutral-400 mt-1">
+                    {selectedLayout.containerCount} containers · ceiling {selectedZoneDef ? Math.round(selectedZoneDef.ceiling * 100) : "—"}%
+                  </div>
+                </div>
+
+                {/* Top containers */}
+                {selectedLayout.topContainerIds.length > 0 && (
+                  <div className="px-4 py-3 border-b border-neutral-200">
+                    <div className="ds-label text-neutral-500 mb-1.5">Containers (sample)</div>
+                    {selectedLayout.topContainerIds.map(id => (
+                      <div key={id} className="font-mono text-[11.5px] text-neutral-800 py-0.5">{id}</div>
+                    ))}
+                    {selectedLayout.containerCount > 3 && (
+                      <div className="text-[10.5px] text-neutral-400 mt-0.5">+{selectedLayout.containerCount - 3} more in block</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="px-4 py-4 flex flex-col gap-2 mt-auto">
+                  <button
+                    className="w-full text-left px-3 py-2.5 font-semibold text-[12px]"
+                    style={{ background: "#111827", color: "#fff", borderRadius: 5 }}
+                    title="Interior view coming in Part 2"
+                    onClick={() => {
+                      setZone(selectedLayout.zone)
+                      setBlock(selectedLayout.block)
+                      setRow(1)
+                    }}
+                  >
+                    View interior →
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 font-semibold text-[12px]"
+                    style={{ background: "transparent", border: "1px solid #e5e7eb", color: "#374151", borderRadius: 5 }}
+                    onClick={() => setSelectedBlockLabel(null)}
+                  >
+                    Close ✕
+                  </button>
                 </div>
               </div>
-            </div>
-
-            {/* Container detail (seed) */}
-            <div className="border-l-2 border-neutral-200 flex flex-col min-h-0 overflow-auto">
-              {selC ? (
-                <div>
-                  <div className="px-4 pt-3.5 pb-3">
-                    <div className="text-[10px] tracking-widests uppercase text-neutral-500">{selC.address}</div>
-                    <div className="font-black text-[19px] mt-1 tabular tracking-tight">{selC.id}</div>
-                    <div className="text-[12px] text-neutral-600 mt-0.5">{selC.consignee} · {selC.carrierName} · {selC.vessel}</div>
-                  </div>
-                  <div className="px-4 py-3 border-t-2 border-b border-neutral-200 bg-red-50">
-                    <div className="text-[10px] tracking-widests uppercase text-[#a01f14] mb-1">Why here</div>
-                    <div className="text-[12.5px] leading-relaxed">{selC.whyHere}</div>
-                  </div>
-                  {[
-                    ["Size / gross", selC.size+" · "+(selC.grossKg/1000).toFixed(1)+" t"],
-                    ["Status", selC.status.replace(/_/g," ").toLowerCase()],
-                    ["Hours to LFD", selC.hoursToLFD<0?"breached "+Math.abs(selC.hoursToLFD)+" h":selC.hoursToLFD+" h", selC.hoursToLFD<=24],
-                    ["Customs channel", selC.channel, selC.channel==="rojo"||selC.channel==="naranja"],
-                    ["Dwell", selC.dwellDays+" days"],
-                    ["Order priority", selC.priority],
-                    ["Hazmat", selC.hazmat?"IMDG "+selC.imdg:"no"],
-                    ["Seal", selC.seal],
-                    ["Terminal", selC.terminal],
-                  ].map(([k,v,red])=>(
-                    <div key={String(k)} className="flex justify-between gap-3 px-4 py-2 border-b border-neutral-200 text-[11.5px]">
-                      <span className="text-neutral-500">{k}</span>
-                      <span className={`font-semibold text-right ${red?"text-[#dc2626]":""}`}>{String(v)}</span>
-                    </div>
-                  ))}
-                  <div className="px-4 pt-3 pb-1.5 text-[10px] tracking-widests uppercase text-neutral-500 font-bold">Move history</div>
-                  {[
-                    {t:"05:12",what:"Placed at "+selC.address+" by OP-207 (RS-02), 4.2′"},
-                    {t:"04:48",what:"Received from receiving lane R-02"},
-                    {t:"04:31",what:"Gate-in, EIR captured, seal "+selC.seal+" verified"},
-                    {t:"02:55",what:"Departed "+selC.terminal},
-                  ].map(h=>(
-                    <div key={h.t} className="flex gap-2.5 px-4 py-1.5 text-[11.5px]">
-                      <span className="text-neutral-500 tabular w-10">{h.t}</span>
-                      <span className="flex-1 leading-tight">{h.what}</span>
-                    </div>
-                  ))}
-                  <div className="px-4 pt-3 pb-1.5 text-[10px] tracking-widests uppercase text-neutral-500 font-bold">Open in</div>
-                  <div className="flex flex-col gap-1.5 px-4 pb-4">
-                    <Button variant="secondary" size="sm" className="text-[11.5px] justify-start" onClick={()=>onNavigate("S4",selC.id)}>
-                      {moves.some(m=>m.containerId===selC.id)?"Planned move in the night plan →":"No planned move today · open the plan →"}
-                    </Button>
-                    <Button variant="secondary" size="sm" className="text-[11.5px] justify-start" onClick={()=>onNavigate("S7",selC.id)}>Related events in the tower →</Button>
-                    <Button variant="secondary" size="sm" className="text-[11.5px] justify-start" onClick={()=>onNavigate("S2",selC.id)}>Container in the gate console →</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="px-4 py-4 text-[12px] text-neutral-500 leading-relaxed">Select a container in the front view to see its record, the sentence explaining why the planner put it there, and its links into the plan and the tower.</div>
-              )}
-            </div>
+            )}
           </div>
         </>
       )}
