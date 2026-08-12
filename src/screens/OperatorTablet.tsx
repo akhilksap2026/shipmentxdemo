@@ -4,6 +4,7 @@ import { useData } from "@/lib/DataContext"
 import { backendApi } from "@/lib/backend-api"
 import type { BackendMoveDetail } from "@/lib/backend-api"
 import { slotAddress, REASON_LABELS } from "@/lib/backend-adapters"
+import { OPERATOR_QUEUES } from "@/data/yard-ops"
 
 const STEPS = [
   { key:"instruction", title:"Retrieve to staging", tag:"1", label:"Instruction", note:"One instruction per view, large type for cab visibility." },
@@ -30,13 +31,18 @@ type DisplayTask = {
 export default function OperatorTablet() {
   const { operatorTasks, refresh, backendConnected, backendJockeys } = useData()
 
-  // ── Existing state (unchanged) ────────────────────────────────────────────
+  // ── Existing state ────────────────────────────────────────────────────────
   const [step,         setStep]         = useState(0)
   const [reason,       setReason]       = useState<string|null>(null)
   const [quarantine,   setQuarantine]   = useState(false)
   const [offline,      setOffline]      = useState(false)
   const [confirming,   setConfirming]   = useState(false)
   const [confirmError, setConfirmError] = useState<string|null>(null)
+
+  // ── Queue state ───────────────────────────────────────────────────────────
+  const [queueIdx,    setQueueIdx]    = useState(0)
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
+  const [queueToast,  setQueueToast]  = useState<string|null>(null)
 
   // ── Backend engine state ──────────────────────────────────────────────────
   const [selectedJockeyId, setSelectedJockeyId] = useState<number | null>(null)
@@ -51,7 +57,7 @@ export default function OperatorTablet() {
 
   const go = (i: number) => { setStep(Math.max(0, Math.min(STEPS.length-1, i))); setScanResult(null) }
   const current = STEPS[step]
-  const seedTask = operatorTasks[0]
+  const seedTask = operatorTasks[queueIdx] ?? operatorTasks[operatorTasks.length - 1]
   const codes = ["Wrong container in slot","ID plate unreadable","Yard record out of date"]
 
   // ── Derive normalised displayTask from whichever source is active ─────────
@@ -165,7 +171,7 @@ export default function OperatorTablet() {
           if (selectedJockeyId != null) await fetchNextTask(selectedJockeyId)
         }, 2000)
       } else {
-        // Seed / Express fallback (existing behaviour)
+        // Seed / Express fallback — mark done and advance queue after 2 s
         const res = await fetch(`/api/moves/${displayTask.id}/complete`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -176,7 +182,17 @@ export default function OperatorTablet() {
           throw new Error((body as { error?: string }).error ?? `Server error ${res.status}`)
         }
         await refresh(["moves", "containers"])
-        go(0)
+        const doneId = String(displayTask.id)
+        setCompletedIds(prev => new Set([...prev, doneId]))
+        // Stay on done step for 2 s so operator sees completion, then advance
+        setTimeout(() => {
+          setQueueIdx(prev => prev + 1)
+          go(0)
+          setReason(null)
+          setQuarantine(false)
+          setScanInput("")
+          setScanResult(null)
+        }, 2000)
       }
     } catch (err) {
       setConfirmError(String(err).replace("Error: ", ""))
@@ -329,7 +345,7 @@ export default function OperatorTablet() {
           )}
           <button
             style={{ background: "transparent", color: "#374151", border: "1px solid #e5e7eb", borderRadius: 5, fontSize: 12, padding: "4px 12px" }}
-            onClick={()=>{setStep(0);setReason(null);setQuarantine(false);setScanInput("");setScanResult(null)}}
+            onClick={()=>{setStep(0);setReason(null);setQuarantine(false);setScanInput("");setScanResult(null);setQueueIdx(0);setCompletedIds(new Set())}}
           >
             Restart run
           </button>
@@ -352,6 +368,76 @@ export default function OperatorTablet() {
             <div className="flex justify-between px-3 py-1.5 bg-neutral-900 text-white" style={{ fontSize: 10, letterSpacing: "0.1em" }}>
               <span className="font-mono">06:24</span>
               <span className="font-mono">{backendConnected ? "engine" : offline ? "OFFLINE · queued 3" : "4G"} · 84%</span>
+            </div>
+
+            {/* ── Queue strip ── */}
+            <div className="border-b border-[#e5e7eb]" style={{ background: "#f9fafb" }}>
+              {backendConnected && engineTask ? (
+                <div className="px-4 py-2 text-[11px] text-neutral-500 italic">
+                  Queue loading from engine…
+                </div>
+              ) : (
+                <div
+                  className="flex gap-1.5 px-3 py-2.5"
+                  style={{ overflowX: "auto", scrollbarWidth: "none" }}
+                >
+                  {operatorTasks.map((task, i) => {
+                    const isDone = completedIds.has(task.id)
+                    const isCurrent = i === queueIdx
+                    // Abbreviate: "B-03-3-4-3" → "B-03", "S-01-1-2-1" → "S-01"
+                    const fromShort = task.from.split("-").slice(0, 2).join("-")
+                    const toShort   = task.to.split("-").slice(0, 2).join("-")
+                    const cnShort   = task.container.slice(0, 4)
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => {
+                          if (!isCurrent && !isDone) {
+                            setQueueToast(`Task ${i + 1} is locked — complete the current task first`)
+                            setTimeout(() => setQueueToast(null), 2500)
+                          }
+                        }}
+                        className="flex-none flex flex-col gap-0.5 px-2 py-1.5"
+                        style={{
+                          minWidth: 70,
+                          background: isCurrent ? "#111827" : "transparent",
+                          border: `1px solid ${isCurrent ? "#111827" : "#d1d5db"}`,
+                          borderRadius: 5,
+                          opacity: isDone ? 0.45 : 1,
+                          cursor: !isCurrent && !isDone ? "not-allowed" : "default",
+                        }}
+                      >
+                        <div
+                          className="text-[9px] font-bold tracking-wider"
+                          style={{ color: isCurrent ? "#6b7280" : "#9ca3af" }}
+                        >
+                          {isDone ? "✓ done" : `#${i + 1}`}
+                        </div>
+                        <div
+                          className="font-mono font-bold leading-none"
+                          style={{ fontSize: 10, color: isCurrent ? "#fff" : isDone ? "#9ca3af" : "#374151" }}
+                        >
+                          {cnShort}
+                        </div>
+                        <div
+                          className="text-[9px] font-mono leading-none"
+                          style={{ color: isCurrent ? "#6b7280" : "#9ca3af" }}
+                        >
+                          {fromShort}→{toShort}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {queueToast && (
+                <div
+                  className="mx-3 mb-2 px-2.5 py-1.5 text-[11px] leading-snug"
+                  style={{ background: "#fffbeb", border: "1px solid #fcd34d", color: "#92400e", borderRadius: 5 }}
+                >
+                  {queueToast}
+                </div>
+              )}
             </div>
 
             {/* Task header */}

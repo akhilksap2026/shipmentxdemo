@@ -61,8 +61,17 @@ export const DIFF_ROWS = [
 ];
 
 export const OPERATOR_TASKS = [
-  { id:"MV-1028", seq:"07 of 24", type:"LOAD OUTBOUND", container:"HLXU4406052", from:"B-03-3-4-3", to:"S-01-1-2-1", weight:"27.8 t", size:"40GP", est:"4.6", reason:"Truck booked 08:15; container pre-staged at S-01-1-2-1, 15-min turn protected.", warn:"Heavy unit: 27.8 t — check capacity chart before lift. Tier 3 at row 1 only." }
+  { id:"MV-1028", seq:"07 of 24", type:"LOAD OUTBOUND",       container:"HLXU4406052", from:"B-03-3-4-3", to:"S-01-1-2-1", weight:"27.8 t", size:"40GP", est:"4.6", reason:"Truck booked 08:15; container pre-staged at S-01-1-2-1, 15-min turn protected.", warn:"Heavy unit: 27.8 t — check capacity chart before lift. Tier 3 at row 1 only." },
+  { id:"MV-1029", seq:"08 of 24", type:"RESHUFFLE",           container:"MSCU4419307", from:"A-02-1-3-2", to:"A-02-2-1-1", weight:"18.4 t", size:"20GP", est:"6.4", reason:"LFD-critical unit blocked below — reshuffle clears path for 08:15 extraction.", warn:"Stack at tier 4 on arrival — validate ground bearing before placing." },
+  { id:"MV-1030", seq:"09 of 24", type:"RETRIEVE TO STAGING", container:"HLXU7959453", from:"B-04-2-7-2", to:"S-01-1-1-2", weight:"22.1 t", size:"40HC", est:"4.6", reason:"Vessel cut-off 10:30, gate pressure mounting — priority retrieval.", warn:"Audit flag on this unit. Verify slot before lift and confirm with supervisor." },
+  { id:"MV-1031", seq:"10 of 24", type:"PLACE INBOUND",       container:"CMAU9963816", from:"E-01-0-0-0", to:"B-02-1-5-1", weight:"14.2 t", size:"20GP", est:"5.1", reason:"Empty return processed and cleared — place to standard holding block.", warn:"Follow standard stack sequence. No tier restrictions apply." },
+  { id:"MV-1032", seq:"11 of 24", type:"PRE-MARSHAL",         container:"COSU3308834", from:"C-01-3-2-1", to:"C-01-3-1-1", weight:"31.0 t", size:"40GP", est:"5.8", reason:"Pre-marshal ahead of MSC LUCIA berthing 08:00 — vessel cutoff in 1 h 35 min.", warn:"Heavy unit. Pre-marshal position confirmed with vessel planner." },
 ];
+
+/** Seed queue for each operator — task IDs in execution order */
+export const OPERATOR_QUEUES: Record<string, string[]> = {
+  "OP-114": ["MV-1028", "MV-1029", "MV-1030", "MV-1031", "MV-1032"],
+};
 
 export const TURN_BY_HOUR = [
   { hour:"06", p50:12.1, p90:18.4, visits:9 },

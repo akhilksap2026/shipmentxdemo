@@ -1,0 +1,297 @@
+PART 1 PROMPT: PHYSICAL YARD MACRO MAP — BLOCKS AT ACTUAL POSITIONS
+Read src/screens/YardMap.tsx, src/data/yard-data.ts, and src/lib/DataContext.tsx first. Understand the current Container, Zone types and the existing seed data structure. Then implement the following changes.
+The goal is to replace the existing ZoomableBlockGrid and the 3-column map layout with a single physical yard canvas where blocks are positioned as they would be in a real terminal yard — terminal at the top, gate at the bottom, with lanes between block rows.
+Step 1: Create the yard layout engine
+Create src/lib/yard-layout.ts with the following:
+export interface BlockLayout {
+zone: string
+block: number
+label: string
+x: number
+y: number
+w: number
+h: number
+occupancyPct: number
+containerCount: number
+capacity: number
+}
+const SLOT_WIDTH_PX = 10
+const ROW_HEIGHT_PX = 14
+const LANE_WIDTH_PX = 44
+const BLOCK_MARGIN_PX = 6
+const YARD_WIDTH = 1400
+function zoneOrder(zoneId: string): number {
+// Terminal-to-gate stacking order
+return { C: 0, A: 1, B: 2, D: 3, E: 4, S: 5, R: 6 }[zoneId] ?? 99
+}
+export function computeBlockLayouts(
+zones: Zone[],
+containers: Container[]
+): BlockLayout[] {
+const layouts: BlockLayout[] = []
+let currentY = 32 // space for terminal label
+const sortedZones = [...zones].filter(z => !"RS".includes(z.id)).sort((a, b) => zoneOrder(a.id) - zoneOrder(b.id))
+for (const zone of sortedZones) {
+const blockW = zone.slots * SLOT_WIDTH_PX
+const blockH = zone.rows * ROW_HEIGHT_PX
+const blocksPerRow = Math.max(1, Math.floor((YARD_WIDTH - LANE_WIDTH_PX) / (blockW + BLOCK_MARGIN_PX)))
+plain
+
+Copy
+for (let b = 0; b < zone.blocks; b++) {
+  const rowInZone = Math.floor(b / blocksPerRow)
+  const colInRow = b % blocksPerRow
+  const x = LANE_WIDTH_PX + colInRow * (blockW + BLOCK_MARGIN_PX)
+  const y = currentY + rowInZone * (blockH + LANE_WIDTH_PX)
+
+  const blockContainers = containers.filter(c => c.zone === zone.id && c.block === b + 1)
+  const capacity = zone.rows * zone.slots * zone.maxTiers
+  const occupancyPct = capacity > 0 ? Math.round((blockContainers.length / capacity) * 100) : 0
+
+  layouts.push({
+    zone: zone.id,
+    block: b + 1,
+    label: `${zone.id}-${String(b + 1).padStart(2, "0")}`,
+    x, y, w: blockW, h: blockH,
+    occupancyPct,
+    containerCount: blockContainers.length,
+    capacity,
+  })
+}
+
+const rowsNeeded = Math.ceil(zone.blocks / blocksPerRow)
+currentY += rowsNeeded * (blockH + LANE_WIDTH_PX) + LANE_WIDTH_PX
+}
+return layouts
+}
+export function getYardDimensions(layouts: BlockLayout[]): { width: number; height: number } {
+if (layouts.length === 0) return { width: YARD_WIDTH, height: 600 }
+const maxX = Math.max(...layouts.map(l => l.x + l.w))
+const maxY = Math.max(...layouts.map(l => l.y + l.h))
+return { width: maxX + LANE_WIDTH_PX, height: maxY + LANE_WIDTH_PX + 40 }
+}
+Step 2: Create the PhysicalYardMap component
+Create src/components/yard/PhysicalYardMap.tsx:
+import { useRef, useState, useCallback, useEffect } from "react"
+import type { BlockLayout } from "@/lib/yard-layout"
+interface Props {
+layouts: BlockLayout[]
+selectedBlock: string | null
+onSelectBlock: (label: string) => void
+children?: React.ReactNode // overlay layer
+}
+export default function PhysicalYardMap({ layouts, selectedBlock, onSelectBlock, children }: Props) {
+const containerRef = useRef<HTMLDivElement>
+// Fit to view on mount
+useEffect(() => {
+fitView()
+}, [layouts.length])
+const fitView = () => {
+if (!containerRef.current || layouts.length === 0) return
+const { width: cw, height: ch } = containerRef.current.getBoundingClientRect()
+const { width: vw, height: vh } = getYardDimensions(layouts)
+const scale = Math.min((cw - 32) / vw, (ch - 32) / vh, 1)
+setTf({ x: 16, y: 16, scale })
+}
+const zoomAt = useCallback((cx: number, cy: number, factor: number) => {
+setTf(t => {
+const newScale = Math.max(0.15, Math.min(5, t.scale * factor))
+const actual = newScale / t.scale
+return { scale: newScale, x: cx - (cx - t.x) * actual, y: cy - (cy - t.y) * actual }
+})
+}, [])
+// Wheel zoom
+useEffect(() => {
+const el = containerRef.current
+if (!el) return
+const onWheel = (e: WheelEvent) => {
+e.preventDefault()
+const rect = el.getBoundingClientRect()
+zoomAt(e.clientX - rect.left, e.clientY - rect.top, Math.pow(0.999, e.deltaY))
+}
+el.addEventListener("wheel", onWheel, { passive: false })
+return () => el.removeEventListener("wheel", onWheel)
+}, [zoomAt])
+// Drag pan
+const onMouseDown = (e: React.MouseEvent) => { dragging.current = true; didDrag.current = false; lastPos.current = { x: e.clientX, y: e.clientY } }
+const onMouseMove = (e: React.MouseEvent) => {
+if (!dragging.current) return
+const dx = e.clientX - lastPos.current.x; const dy = e.clientY - lastPos.current.y
+if (Math.abs(dx) + Math.abs(dy) > 2) didDrag.current = true
+lastPos.current = { x: e.clientX, y: e.clientY }
+setTf(t => ({ ...t, x: t.x + dx, y: t.y + dy }))
+}
+const onMouseUp = () => { dragging.current = false }
+const zoneColor = (zoneId: string): string => {
+return { A: "#e0f2fe", B: "#dbeafe", C: "#f3e8ff", D: "#ffedd5", E: "#ecfccb", S: "#fef3c7", R: "#f3f4f6" }[zoneId] ?? "#f9fafb"
+}
+const zoneBorder = (zoneId: string): string => {
+return { A: "#7dd3fc", B: "#93c5fd", C: "#d8b4fe", D: "#fdba74", E: "#bef264", S: "#fcd34d", R: "#d1d5db" }[zoneId] ?? "#9ca3af"
+}
+return (
+<div
+ref={containerRef}
+className="relative overflow-hidden bg-[#f0f4f8]"
+style={{ flex: 1, minHeight: 0, cursor: dragging.current ? "grabbing" : "grab", touchAction: "none", userSelect: "none" }}
+onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+>
+{/* Yard background with lane markings /}
+<div
+className="absolute"
+style={{
+transform: translate(${tf.x}px, ${tf.y}px) scale(${tf.scale}),
+transformOrigin: "0 0",
+width: getYardDimensions(layouts).width,
+height: getYardDimensions(layouts).height,
+}}
+>
+{/ Terminal label */}
+<div className="absolute top-0 left-0 right-0 h-7 bg-slate-700 text-white text-[10px] font-bold flex items-center px-3 tracking-wider">
+plain
+
+Copy
+    {/* Gate label */}
+    <div className="absolute bottom-0 left-0 right-0 h-7 bg-emerald-700 text-white text-[10px] font-bold flex items-center px-3 tracking-wider">
+      GATE
+    </div>
+
+    {/* Blocks */}
+    {layouts.map(layout => {
+      const isSelected = selectedBlock === layout.label
+      const bg = zoneColor(layout.zone)
+      const border = zoneBorder(layout.zone)
+      return (
+        <div
+          key={layout.label}
+          className="absolute rounded-sm transition-shadow"
+          style={{
+            left: layout.x,
+            top: layout.y,
+            width: layout.w,
+            height: layout.h,
+            background: bg,
+            border: `2px solid ${isSelected ? "#dc2626" : border}`,
+            boxShadow: isSelected ? "0 0 0 3px rgba(220,38,38,0.3), 0 4px 12px rgba(0,0,0,0.15)" : "0 2px 4px rgba(0,0,0,0.06)",
+            cursor: "pointer",
+          }}
+          onClick={() => { if (!didDrag.current) onSelectBlock(layout.label) }}
+          onMouseDown={(e) => { if (e.button === 0) e.stopPropagation() }}
+        >
+          {/* Block label */}
+          <div className="absolute top-0.5 left-1 text-[9px] font-bold text-slate-700 leading-none">{layout.label}</div>
+
+          {/* Occupancy fill bar at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/50">
+            <div
+              className="h-full"
+              style={{
+                width: `${layout.occupancyPct}%`,
+                background: layout.occupancyPct > 85 ? "#dc2626" : layout.occupancyPct > 70 ? "#f59e0b" : "#16a34a",
+              }}
+            />
+          </div>
+
+          {/* Container count */}
+          <div className="absolute bottom-2 right-1 text-[8px] text-slate-500 leading-none">{layout.containerCount}</div>
+        </div>
+      )
+    })}
+
+    {/* Lane labels (zone names) */}
+    {Array.from(new Set(layouts.map(l => l.zone))).map(zoneId => {
+      const first = layouts.find(l => l.zone === zoneId)
+      if (!first) return null
+      return (
+        <div
+          key={zoneId}
+          className="absolute text-[9px] text-slate-400 font-semibold tracking-wider"
+          style={{ left: 4, top: first.y - 18 }}
+        >
+          Zone {zoneId}
+        </div>
+      )
+    })}
+  </div>
+
+  {/* Zoom controls */}
+  <div className="absolute bottom-3 right-3 flex gap-1">
+    <button onMouseDown={e=>e.stopPropagation()} onClick={()=>{const r=containerRef.current!.getBoundingClientRect();zoomAt(r.width/2,r.height/2,1.3)}} className="w-7 h-7 bg-white border border-slate-300 rounded text-slate-600 text-xs font-bold hover:bg-slate-50 flex items-center justify-center shadow-sm">+</button>
+    <button onMouseDown={e=>e.stopPropagation()} onClick={()=>{const r=containerRef.current!.getBoundingClientRect();zoomAt(r.width/2,r.height/2,0.77)}} className="w-7 h-7 bg-white border border-slate-300 rounded text-slate-600 text-xs font-bold hover:bg-slate-50 flex items-center justify-center shadow-sm">−</button>
+    <button onMouseDown={e=>e.stopPropagation()} onClick={fitView} className="px-2 h-7 bg-white border border-slate-300 rounded text-slate-500 text-[10px] hover:bg-slate-50 shadow-sm">fit</button>
+  </div>
+
+  {/* Mini-map */}
+  {layouts.length > 0 && (
+    <MiniMap layouts={layouts} tf={tf} containerRef={containerRef} />
+  )}
+
+  {/* Overlay layer (tooltips, etc.) */}
+  {children}
+</div>
+)
+}
+// Mini-map component (inline or separate)
+function MiniMap({ layouts, tf, containerRef }: { layouts: BlockLayout[]; tf: {x:number;y:number;scale:number}; containerRef: React.RefObject<HTMLDivElement>
+if (!containerRef.current) return null
+const { width: cw, height: ch } = containerRef.current.getBoundingClientRect()
+const vpX = -tf.x / tf.scale
+const vpY = -tf.y / tf.scale
+const vpW = cw / tf.scale
+const vpH = ch / tf.scale
+return (
+<div className="absolute bottom-3 left-3 bg-white border border-slate-300 rounded shadow-md overflow-hidden" style={{ width: mapW, height: mapH }}>
+<div className="text-[8px] text-slate-500 font-bold px-1.5 py-0.5 border-b border-slate-200">
+<div className="relative" style={{ width: mapW, height: mapH - 18 }}>
+{layouts.map(l => (
+<div
+key={l.label}
+className="absolute bg-slate-300"
+style={{ left: l.x * scale, top: l.y * scale, width: Math.max(2, l.w * scale), height: Math.max(2, l.h * scale) }}
+/>
+))}
+<div
+className="absolute border border-red-500 bg-red-500/10"
+style={{
+left: Math.max(0, vpX * scale),
+top: Math.max(0, vpY * scale),
+width: Math.min(mapW, vpW * scale),
+height: Math.min(mapH - 18, vpH * scale),
+}}
+/>
+
+
+)
+}
+Step 3: Replace the YardMap map view
+In src/screens/YardMap.tsx:
+Replace the entire {view==="map" && !isLive && (...)} block (the 3-column seed map layout) with the PhysicalYardMap component.
+The new map view should be a single full-height area with PhysicalYardMap taking the available space.
+When a block is clicked, set a new state selectedBlockLabel and show a floating detail panel on the right (not a 3-column layout).
+The floating panel should show: block label, zone name, occupancy %, capacity, container count, and a "View interior" button.
+Keep the toolbar at the top unchanged.
+Keep the dashboard view unchanged.
+Keep the live yard map mode as-is for now (it will be replaced in Part 2).
+Step 4: Add block hover tooltip
+Create src/components/yard/BlockTooltip.tsx:
+A small floating tooltip that appears on hover over a block in PhysicalYardMap, showing:
+Block label
+Zone name
+Container count / capacity
+Occupancy % with a color indicator
+Top 3 container IDs in that block
+Step 5: Update KPI bar
+Replace the hardcoded KPI values in the map view KPI bar with computed ones:
+Occupancy = total containers / total capacity
+TEU = sum of container sizes (40ft = 2 TEU, 20ft = 1 TEU)
+Avg stack height = average tier of all containers
+Add: "Blocks" count, "Zones" count
+Step 6: Clean up
+Remove the ZoomableBlockGrid component entirely from YardMap.tsx.
+Remove the old seed-mode 3-column grid layout.
+Keep the existing live-mode code as-is (will be replaced in Part 2).
+Run npm run build to verify.
+Rules:
+Do not change the backend API.
+Do not change the Dashboard view.
+The PhysicalYardMap must work with both seed and live data (for now seed only; live wiring comes in Part 2).
+Preserve the data source toggle and color mode buttons in the toolbar.
