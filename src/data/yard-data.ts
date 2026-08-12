@@ -183,6 +183,53 @@ function buildMoves(): Move[] {
 
 export const MOVES: Move[] = buildMoves();
 
+// ── Outbound retrieval planning step ─────────────────────────────────────────
+//
+// This function represents the RETRIEVE_STAGE selection pass that runs AFTER
+// inbound placement (buildMoves above). It is a pure function: given a
+// container snapshot, it returns the set of retrieval moves that must be
+// sequenced to protect free-time windows.
+//
+// Rules:
+//   1. Only IN_YARD, non-empty containers with hoursToLFD ≤ 72 qualify.
+//   2. Sort ascending by hoursToLFD (most urgent first).
+//   3. Each move is RETRIEVE_STAGE with origin = current address,
+//      destination = "" (assigned by the placement step that follows).
+//   4. reason_text is set; the legacy `reason` field mirrors it for
+//      compatibility with existing display code.
+
+export function buildRetrievalMoves(containers: Container[]): Move[] {
+  const urgent = containers
+    .filter(c => c.status === "IN_YARD" && !c.empty && c.hoursToLFD <= 72)
+    .sort((a, b) => a.hoursToLFD - b.hoursToLFD)
+
+  return urgent.map((c, i) => {
+    const hours = Math.max(0, Math.round(c.hoursToLFD))
+    const reasonText = `LFD in ${hours}h — retrieval sequenced to protect free time.`
+    return {
+      id: `RTV-${String(i + 1).padStart(4, "0")}`,
+      seq: 0,            // sequenced in the ordering step
+      type: "RETRIEVE_STAGE",
+      containerId: c.id,
+      from: c.address,
+      to: "",            // destination assigned by placement step
+      equipment: "",     // assigned by dispatch step
+      operator: "",
+      operatorName: "",
+      estMin: 0,
+      start: "",
+      end: "",
+      startMin: 0,
+      endMin: 0,
+      state: "PLANNED",
+      frozen: false,
+      priority: c.priority,
+      reason: reasonText,
+      reason_text: reasonText,
+    }
+  })
+}
+
 export const EXCEPTIONS = [
   { id:"EX-01", type:"ZONE_FULL", severity:"high", subject:"Zone C at 80% ceiling", detail:"Two orange-channel arrivals have no eligible customs-controlled slot. Overflow policy requires a ceiling override.", action:"Request override" },
   { id:"EX-02", type:"NO_CERTIFIED_OPERATOR", severity:"high", subject:"IMDG class 5.1 retrieval 09:20", detail:"Only OP-114 is IMDG certified on shift and is committed to a frozen chain until 09:40.", action:"Escalate" },
