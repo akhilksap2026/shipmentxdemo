@@ -115,12 +115,12 @@ async function run() {
          (id, seq, type, container_id, from_loc, to_loc,
           equipment_id, operator_id, operator_name,
           est_min, start_time, end_time, start_min, end_min,
-          state, frozen, priority, reason)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+          state, frozen, priority, reason, reason_text)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
         [m.id, m.seq, m.type, m.containerId, m.from, m.to,
          m.equipment, m.operator, m.operatorName,
          m.estMin, m.start, m.end, m.startMin, m.endMin,
-         m.state, m.frozen, m.priority, m.reason]
+         m.state, m.frozen, m.priority, m.reason, m.reason_text ?? null]
       )
     }
     console.log(`  moves: ${MOVES.length}`)

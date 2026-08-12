@@ -147,6 +147,7 @@ export interface Move {
   id: string; seq: number; type: string; containerId: string; from: string; to: string;
   equipment: string; operator: string; operatorName: string; estMin: number; start: string; end: string;
   startMin: number; endMin: number; state: string; frozen: boolean; priority: string; reason: string;
+  reason_text: string | null;
 }
 
 function buildMoves(): Move[] {
@@ -173,7 +174,8 @@ function buildMoves(): Move[] {
       state: i<=6?"DONE":i<=8?"IN_PROGRESS":i<=30?"ASSIGNED":"PLANNED",
       frozen: i<=12,
       priority: c.priority,
-      reason: MOVE_REASONS[type].replace("{h}",String(Math.max(0,c.hoursToLFD))).replace("{s}",String(int(1,10)))
+      reason: MOVE_REASONS[type].replace("{h}",String(Math.max(0,c.hoursToLFD))).replace("{s}",String(int(1,10))),
+      reason_text: null
     });
   }
   return out;

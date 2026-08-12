@@ -76,7 +76,7 @@ app.get('/api/moves', async (_, res) => {
             equipment_id AS equipment, operator_id AS operator, operator_name AS "operatorName",
             est_min::float AS "estMin", start_time AS start, end_time AS end,
             start_min AS "startMin", end_min AS "endMin",
-            state, frozen, priority, reason
+            state, frozen, priority, reason, reason_text AS "reason_text"
      FROM moves ORDER BY seq`
   )
   res.json(rows)
