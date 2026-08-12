@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useData } from "@/lib/DataContext"
@@ -35,6 +35,199 @@ const LEGENDS: Record<ColorMode, [string,string][]> = {
   lfd: [["Breached","#9b1c1c"],["≤24 h","#d9291c"],["≤72 h","#f59e0b"],[">72 h","#d1d5db"]],
   channel: [["Rojo","#9b1c1c"],["Naranja","#f97316"],["Verde","#d1d5db"]],
   dwell: [["<5 d","#d1d5db"],["5–10 d","#6b7280"],["10–18 d","#374151"],[">18 d","#111827"]],
+}
+
+// ── Zoomable block grid ───────────────────────────────────────────────────────
+const BLOCK_W = 128
+const BLOCK_H = 72
+const BLOCK_GAP = 14
+const COLS = 5
+
+interface BlockDatum { b: number; label: string; count: number; cells: string[] }
+
+function ZoomableBlockGrid({ blocks, selectedBlock, onSelectBlock }: {
+  blocks: BlockDatum[]
+  selectedBlock: number
+  onSelectBlock: (b: number) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [tf, setTf] = useState({ x: 16, y: 16, scale: 1 })
+  const dragging = useRef(false)
+  const didDrag = useRef(false)
+  const lastPos = useRef({ x: 0, y: 0 })
+  const lastTouchDist = useRef<number | null>(null)
+
+  const svgCols = Math.min(COLS, blocks.length)
+  const svgRows = Math.ceil(blocks.length / COLS)
+  const svgW = svgCols * (BLOCK_W + BLOCK_GAP) + BLOCK_GAP
+  const svgH = svgRows * (BLOCK_H + BLOCK_GAP) + BLOCK_GAP
+
+  // ── zoom helpers ──────────────────────────────────────────────────────────
+  const zoomAt = useCallback((cx: number, cy: number, factor: number) => {
+    setTf(t => {
+      const newScale = Math.max(0.25, Math.min(6, t.scale * factor))
+      const actual = newScale / t.scale
+      return { scale: newScale, x: cx - (cx - t.x) * actual, y: cy - (cy - t.y) * actual }
+    })
+  }, [])
+
+  const onWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault()
+    const rect = containerRef.current!.getBoundingClientRect()
+    zoomAt(e.clientX - rect.left, e.clientY - rect.top, Math.pow(0.999, e.deltaY))
+  }, [zoomAt])
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [onWheel])
+
+  // ── mouse drag ────────────────────────────────────────────────────────────
+  const onMouseDown = (e: React.MouseEvent) => {
+    dragging.current = true
+    didDrag.current = false
+    lastPos.current = { x: e.clientX, y: e.clientY }
+  }
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging.current) return
+    const dx = e.clientX - lastPos.current.x
+    const dy = e.clientY - lastPos.current.y
+    if (Math.abs(dx) + Math.abs(dy) > 2) didDrag.current = true
+    lastPos.current = { x: e.clientX, y: e.clientY }
+    setTf(t => ({ ...t, x: t.x + dx, y: t.y + dy }))
+  }
+  const onMouseUp = () => { dragging.current = false }
+
+  // ── touch ─────────────────────────────────────────────────────────────────
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX
+      const dy = e.touches[1].clientY - e.touches[0].clientY
+      lastTouchDist.current = Math.hypot(dx, dy)
+    } else {
+      lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    }
+  }
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && lastTouchDist.current !== null) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX
+      const dy = e.touches[1].clientY - e.touches[0].clientY
+      const dist = Math.hypot(dx, dy)
+      const rect = containerRef.current!.getBoundingClientRect()
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top
+      zoomAt(cx, cy, dist / lastTouchDist.current)
+      lastTouchDist.current = dist
+    } else if (e.touches.length === 1) {
+      const dx = e.touches[0].clientX - lastPos.current.x
+      const dy = e.touches[0].clientY - lastPos.current.y
+      lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      setTf(t => ({ ...t, x: t.x + dx, y: t.y + dy }))
+    }
+  }
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) lastTouchDist.current = null
+  }
+
+  // ── fit to view ───────────────────────────────────────────────────────────
+  const fitView = () => {
+    if (!containerRef.current) return
+    const { width, height } = containerRef.current.getBoundingClientRect()
+    const scaleX = (width - 32) / svgW
+    const scaleY = (height - 32) / svgH
+    const scale = Math.min(scaleX, scaleY, 1)
+    setTf({ x: 16, y: 16, scale })
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative overflow-hidden bg-neutral-50 border-b border-neutral-200"
+      style={{ height: 230, cursor: dragging.current ? "grabbing" : "grab", touchAction: "none", userSelect: "none" }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      <svg
+        width={svgW}
+        height={svgH}
+        style={{
+          position: "absolute",
+          transform: `translate(${tf.x}px,${tf.y}px) scale(${tf.scale})`,
+          transformOrigin: "0 0",
+          overflow: "visible",
+        }}
+      >
+        {blocks.map(({ b, label, count, cells }, idx) => {
+          const col = idx % COLS
+          const row = Math.floor(idx / COLS)
+          const bx = BLOCK_GAP + col * (BLOCK_W + BLOCK_GAP)
+          const by = BLOCK_GAP + row * (BLOCK_H + BLOCK_GAP)
+          const selected = b === selectedBlock
+          const cellW = (BLOCK_W - 16) / cells.length
+          return (
+            <g
+              key={b}
+              style={{ cursor: "pointer" }}
+              onClick={(e) => {
+                // suppress click if user was dragging
+                if (didDrag.current) { didDrag.current = false; return }
+                e.stopPropagation()
+                onSelectBlock(b)
+              }}
+            >
+              <rect
+                x={bx} y={by} width={BLOCK_W} height={BLOCK_H}
+                rx={2}
+                fill={selected ? "#fef3f2" : "white"}
+                stroke={selected ? "#d9291c" : "#d1d5db"}
+                strokeWidth={selected ? 2 : 1}
+              />
+              <text x={bx + 8} y={by + 15} fontSize={10} fontWeight="bold" fill="#111827" fontFamily="sans-serif">{label}</text>
+              <text x={bx + BLOCK_W - 8} y={by + 15} fontSize={10} fill="#9ca3af" textAnchor="end" fontFamily="sans-serif">{count}</text>
+              {cells.map((color, i) => (
+                <rect
+                  key={i}
+                  x={bx + 8 + i * (cellW + 1)}
+                  y={by + 24}
+                  width={Math.max(1, cellW - 1)}
+                  height={34}
+                  fill={color}
+                  rx={1}
+                />
+              ))}
+            </g>
+          )
+        })}
+      </svg>
+
+      {/* Zoom controls */}
+      <div className="absolute bottom-2.5 right-2.5 flex gap-1">
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={() => { if (containerRef.current) { const r = containerRef.current.getBoundingClientRect(); zoomAt(r.width/2, r.height/2, 1.3) }}}
+          className="w-6 h-6 bg-white border border-neutral-300 rounded text-neutral-600 text-xs font-bold hover:bg-neutral-50 flex items-center justify-center shadow-sm"
+        >+</button>
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={() => { if (containerRef.current) { const r = containerRef.current.getBoundingClientRect(); zoomAt(r.width/2, r.height/2, 0.77) }}}
+          className="w-6 h-6 bg-white border border-neutral-300 rounded text-neutral-600 text-xs font-bold hover:bg-neutral-50 flex items-center justify-center shadow-sm"
+        >−</button>
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={fitView}
+          className="px-2 h-6 bg-white border border-neutral-300 rounded text-neutral-500 text-[10px] hover:bg-neutral-50 shadow-sm"
+        >fit</button>
+      </div>
+      <div className="absolute top-2 left-2 text-[9.5px] text-neutral-400 pointer-events-none">scroll to zoom · drag to pan</div>
+    </div>
+  )
 }
 
 export default function YardMap({ focus, onNavigate }: Props) {
@@ -182,24 +375,15 @@ export default function YardMap({ focus, onNavigate }: Props) {
 
             {/* Block grid + front view */}
             <div className="flex flex-col min-h-0 overflow-auto">
-              <div className="px-4 pt-3 pb-1.5 flex items-baseline gap-2.5">
+              <div className="px-4 pt-3 pb-1.5 flex items-baseline gap-2.5 flex-none">
                 <span className="text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Blocks · {zoneDef.name}</span>
-                <span className="text-[11px] text-neutral-500">click a block to open its front view</span>
+                <span className="text-[11px] text-neutral-500">click a block · scroll to zoom · drag to pan</span>
               </div>
-              <div className="flex flex-wrap gap-2.5 px-4 pb-3">
-                {blocks.map(({b,label,count,cells})=>(
-                  <button key={b} onClick={()=>{setBlock(b);setRow(1)}}
-                    className="border-2 p-2 text-left min-w-[104px] hover:bg-neutral-50 transition-colors"
-                    style={{borderColor:block===b?"#d9291c":"#d1d5db"}}>
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span>{label}</span><span className="text-neutral-500 tabular">{count}</span>
-                    </div>
-                    <div className="flex gap-0.5 mt-1.5">
-                      {cells.map((c,i)=><span key={i} className="w-1.5 h-5 inline-block" style={{background:c}} />)}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <ZoomableBlockGrid
+                blocks={blocks}
+                selectedBlock={block}
+                onSelectBlock={(b) => { setBlock(b); setRow(1) }}
+              />
 
               <div className="border-t-2 border-neutral-200 px-4 pt-3 pb-1.5 flex items-baseline gap-3 flex-wrap">
                 <span className="text-[10px] tracking-widest uppercase text-neutral-500 font-bold">
