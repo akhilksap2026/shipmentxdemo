@@ -2,3 +2,4 @@
 set -e
 
 npm install
+npx tsx server/seed.ts

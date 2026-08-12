@@ -1,0 +1,2 @@
+- [DB + API architecture](db-api-architecture.md) — full-stack: Express on :8000, Vite proxy /api, DataContext seeds from static then replaces with DB
+- [PostgreSQL numeric types](pg-numeric-casting.md) — pg returns DECIMAL/NUMERIC as strings; always cast ::float in SELECT for any numeric column used in JS arithmetic

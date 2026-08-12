@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { MOVES, OPERATORS, ASSUMPTIONS, EXCEPTIONS, TYPE_LABEL, Move } from "@/data/yard-data"
+import { TYPE_LABEL, type Move } from "@/data/yard-data"
+import { useData } from "@/lib/DataContext"
 
 interface Props {
   focus: string | null
@@ -21,7 +21,9 @@ const WEIGHTS = [
 const HOURS = ["06","07","08","09","10","11","12","13"]
 
 export default function NightPlanner({ focus, onNavigate }: Props) {
-  const [sel, setSel] = useState<string>(MOVES[8].id)
+  const { moves, operators, assumptions, exceptions } = useData()
+
+  const [sel, setSel] = useState<string>(() => moves[8]?.id || "")
   const [tab, setTab] = useState("detail")
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState("ALL")
@@ -29,22 +31,27 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
   const [configOpen, setConfigOpen] = useState(false)
   const [wRaw, setWRaw] = useState([40, 25, 20, 15])
 
+  // When DB data loads, fix the initial selection if it changed
+  useEffect(() => {
+    if (moves.length > 8 && !sel) setSel(moves[8].id)
+  }, [moves])
+
   useEffect(() => {
     if (!focus) return
-    const m = MOVES.find(x => x.containerId === focus)
+    const m = moves.find(x => x.containerId === focus)
     if (m) { setSel(m.id); setTab("detail"); setFilter("ALL"); setQ("") }
     else { setQ(focus); setFilter("ALL"); setSel(""); setTab("detail") }
-  }, [focus])
+  }, [focus, moves])
 
   const types = ["ALL","RETRIEVE_STAGE","PLACE_INBOUND","RESHUFFLE","LOAD_OUTBOUND"]
   const ql = q.trim().toLowerCase()
-  const rows = MOVES.filter(m =>
+  const rows = moves.filter(m =>
     (filter === "ALL" || m.type === filter) &&
     (!ql || (m.containerId+m.from+m.to+m.operatorName+m.equipment+m.type).toLowerCase().includes(ql))
   )
-  const selMove = MOVES.find(m => m.id === sel) || null
-  const onShift = OPERATORS.filter(o => o.status === "on shift")
-  const totalMin = MOVES.reduce((a,m) => a+m.estMin, 0)
+  const selMove = moves.find(m => m.id === sel) || null
+  const onShift = operators.filter(o => o.status === "on shift")
+  const totalMin = moves.reduce((a,m) => a+m.estMin, 0)
 
   const projection = [
     { k:"Truck turn P50", target:"15.0′", opt:"11.8′", exp:"13.4′", pes:"17.1′", bandLeft:20, bandWidth:48, mark:66 },
@@ -109,18 +116,18 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
 
       {/* Plan banner */}
       <div className="px-5 py-2.5 bg-neutral-100 border-b border-neutral-200 text-[12.5px] leading-relaxed text-neutral-700 max-w-5xl flex-none">
-        Plan, filter, and sequence today's 96 moves across 3 reach stackers and 1 empty handler, ranked by free-time urgency, detention cost, hazmat handling, order priority, dig-out cost, gate pressure, customs channel, empty-return windows, damage state and dwell — with every placement carrying a one-sentence reason.
+        Plan, filter, and sequence today's {moves.length} moves across 3 reach stackers and 1 empty handler, ranked by free-time urgency, detention cost, hazmat handling, order priority, dig-out cost, gate pressure, customs channel, empty-return windows, damage state and dwell — with every placement carrying a one-sentence reason.
       </div>
 
       {/* Metrics row */}
       <div className="flex flex-wrap border-b-2 border-neutral-200 flex-none bg-white">
         {[
-          { k:"Moves planned", v:"96", sub:"of 284 today" },
+          { k:"Moves planned", v:String(moves.length), sub:"of 284 today" },
           { k:"Machine-hours", v:(totalMin/60).toFixed(1), sub:"of 32.0" },
           { k:"Truck turn P50", v:"13.4′", sub:"target 15′" },
           { k:"Job cycle P50", v:"4.8′", sub:"target 5′" },
           { k:"Detention at risk", v:"$8.4k", sub:"next 72 h", red:true },
-          { k:"Exceptions", v:"3", sub:"unresolved", red:true },
+          { k:"Exceptions", v:String(exceptions.length), sub:"unresolved", red:true },
         ].map(m => (
           <div key={m.k} className="flex-1 basis-36 px-5 py-2.5 border-r border-neutral-200 flex flex-col gap-0.5">
             <span className="text-[10px] tracking-widest uppercase text-neutral-500">{m.k}</span>
@@ -138,7 +145,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
         {/* Left: assumptions + weights */}
         <div className="border-r-2 border-neutral-200 flex flex-col min-h-0 overflow-auto">
           <div className="px-4 pt-3 pb-2 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Assumptions</div>
-          {ASSUMPTIONS.map(a => (
+          {assumptions.map(a => (
             <div key={a.k} className="px-4 pb-2.5">
               <div className="text-[12px] font-semibold leading-tight">{a.v}</div>
               <div className="text-[10.5px] text-neutral-500 leading-tight">
@@ -178,7 +185,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 </button>
               ))}
             </div>
-            <span className="ml-auto text-[11px] text-neutral-500">{rows.length} of {MOVES.length} moves · 12 frozen</span>
+            <span className="ml-auto text-[11px] text-neutral-500">{rows.length} of {moves.length} moves · 12 frozen</span>
           </div>
           <div className="flex-1 min-h-0 overflow-auto">
             <table className="w-full border-collapse text-[12px]">
@@ -226,7 +233,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
           <Tabs value={tab} onValueChange={setTab} className="flex flex-col flex-1 min-h-0">
             <TabsList className="flex-none">
               <TabsTrigger value="detail">Move</TabsTrigger>
-              <TabsTrigger value="exceptions">Exceptions 3</TabsTrigger>
+              <TabsTrigger value="exceptions">Exceptions {exceptions.length}</TabsTrigger>
               <TabsTrigger value="projection">Projected KPI</TabsTrigger>
             </TabsList>
 
@@ -273,14 +280,14 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 </div>
               ) : (
                 <div className="px-4 py-3.5 text-[12.5px] leading-relaxed text-neutral-600">
-                  {focus || q || "This container"} has no move in plan P-2026-08-11 — 96 of 897 containers are moved today.
+                  {focus || q || "This container"} has no move in plan P-2026-08-11 — {moves.length} of 897 containers are moved today.
                 </div>
               )}
             </TabsContent>
 
             <TabsContent value="exceptions">
               <div>
-                {EXCEPTIONS.map(e => (
+                {exceptions.map(e => (
                   <div key={e.id} className="px-4 py-3.5 border-b border-neutral-200">
                     <div className="flex justify-between items-baseline">
                       <span className={`text-[10px] font-bold tracking-wider ${e.severity==="high"?"text-[#d9291c]":"text-neutral-500"}`}>{e.type}</span>
@@ -338,7 +345,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 <span className="text-neutral-500">{op.equipment}</span>
               </div>
               <div className="relative h-8 border-b border-neutral-200 border-l border-neutral-200">
-                {MOVES.filter(m => m.operator === op.id).map(m => (
+                {moves.filter(m => m.operator === op.id).map(m => (
                   <div key={m.id}
                     onClick={() => { setSel(m.id); setTab("detail") }}
                     title={m.id+" "+TYPE_LABEL[m.type]+" "+m.start+"–"+m.end}

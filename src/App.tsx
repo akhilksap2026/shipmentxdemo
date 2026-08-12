@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { DataProvider, useData } from "@/lib/DataContext"
 import NightPlanner from "@/screens/NightPlanner"
 import YardMap from "@/screens/YardMap"
 import GateConsole from "@/screens/GateConsole"
@@ -80,6 +81,7 @@ export default function App() {
   }
 
   return (
+    <DataProvider>
     <div className="grid h-screen" style={{ gridTemplateColumns: "232px minmax(0,1fr)", gridTemplateRows: "48px 34px minmax(0,1fr)" }}>
 
       {/* Sidebar */}
@@ -220,5 +222,6 @@ export default function App() {
         ) : null}
       </div>
     </div>
+    </DataProvider>
   )
 }

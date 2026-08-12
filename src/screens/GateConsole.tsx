@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { VISITS, LANES, APPOINTMENTS, Visit } from "@/data/yard-ops"
+import { useData } from "@/lib/DataContext"
+import type { Visit } from "@/data/yard-ops"
 
 interface Props { focus: string | null }
 
@@ -19,6 +18,8 @@ const LANE_STYLE: Record<string, [string,string,string]> = {
 }
 
 export default function GateConsole({ focus }: Props) {
+  const { visits, lanes, appointments } = useData()
+
   const [tab, setTab] = useState("visits")
   const [sel, setSel] = useState("V-2043")
   const [advanced, setAdvanced] = useState(false)
@@ -27,13 +28,15 @@ export default function GateConsole({ focus }: Props) {
 
   useEffect(() => {
     if (!focus) return
-    const v = VISITS.find(x => x.container === focus)
+    const v = visits.find(x => x.container === focus)
     if (v) { setSel(v.id); setTab("visits") }
-  }, [focus])
+  }, [focus, visits])
 
-  const selVisit = VISITS.find(v => v.id === sel) || VISITS[0]
+  const selVisit: Visit = visits.find(v => v.id === sel) || visits[0]
   const idx = (v: Visit) => STEPS.indexOf(v.state)
-  const apptData = APPOINTMENTS.find(a => a.window === apptSel) || APPOINTMENTS[0]
+  const apptData = appointments.find(a => a.window === apptSel) || appointments[0]
+
+  if (!selVisit) return null
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-auto bg-white text-neutral-900">
@@ -84,7 +87,7 @@ export default function GateConsole({ focus }: Props) {
             {/* Lane status */}
             <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-neutral-200">
               <span className="text-[10px] tracking-widest uppercase text-neutral-500 self-center mr-1">Lanes</span>
-              {LANES.map(l=>{
+              {lanes.map(l=>{
                 const st = LANE_STYLE[l.state] || LANE_STYLE.free
                 return (
                   <div key={l.id} className="border px-2 py-1 min-w-[86px]"
@@ -106,7 +109,7 @@ export default function GateConsole({ focus }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {VISITS.map(v=>(
+                  {visits.map(v=>(
                     <tr key={v.id} onClick={()=>setSel(v.id)}
                       className="cursor-pointer hover:bg-neutral-50 border-b border-neutral-200 transition-colors"
                       style={{background:v.id===sel?"#fef3f2":undefined}}>
@@ -198,7 +201,7 @@ export default function GateConsole({ focus }: Props) {
         <div className="grid flex-1 min-h-0 overflow-auto" style={{gridTemplateColumns:"minmax(360px,1fr) clamp(260px,26vw,360px)"}}>
           <div className="border-r-2 border-neutral-200 overflow-auto">
             <div className="px-4 pt-3 pb-1.5 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Bookable windows · Tue 12 Aug · capacity from machine-hours, not lanes</div>
-            {APPOINTMENTS.map(a=>(
+            {appointments.map(a=>(
               <button key={a.window} onClick={()=>setApptSel(a.window)}
                 className="block w-full text-left px-4 py-2 border-b border-neutral-200 hover:bg-neutral-50 transition-colors"
                 style={{ borderLeft:`3px solid ${a.window===apptSel?"#d9291c":a.over?"#f59e0b":"transparent"}`, background:a.window===apptSel?"#fef3f2":undefined }}>
@@ -217,33 +220,35 @@ export default function GateConsole({ focus }: Props) {
               </button>
             ))}
           </div>
-          <div className="overflow-auto">
-            <div className="px-4 pt-3.5 pb-2.5">
-              <div className="text-[10px] tracking-widest uppercase text-neutral-500">Window {apptData.window}</div>
-              <div className="font-black text-[18px] mt-1">{apptData.booked} booked of {apptData.capacity} capacity</div>
-            </div>
-            {[
-              {k:"Capacity basis",v:"3 RS + 1 EH · 11.4 moves/h"},
-              {k:"Machine minutes committed",v:(apptData.booked*4.8).toFixed(1)+"′"},
-              {k:"Purpose mix",v:"2 pickup · 1 empty · 1 drop"},
-              {k:"Overbooking policy",v:apptData.over?"1 over — accepted with queue risk":"within capacity",red:apptData.over},
-              {k:"No-show handling",v:apptData.noShow?"slot released to waitlist":"n/a"},
-            ].map(d=>(
-              <div key={d.k} className="flex justify-between gap-3 px-4 py-1.5 border-b border-neutral-200 text-[11.5px]">
-                <span className="text-neutral-500">{d.k}</span>
-                <span className={`font-semibold text-right ${d.red?"text-[#d9291c]":""}`}>{d.v}</span>
+          {apptData && (
+            <div className="overflow-auto">
+              <div className="px-4 pt-3.5 pb-2.5">
+                <div className="text-[10px] tracking-widest uppercase text-neutral-500">Window {apptData.window}</div>
+                <div className="font-black text-[18px] mt-1">{apptData.booked} booked of {apptData.capacity} capacity</div>
               </div>
-            ))}
-            <div className="px-4 pt-3 pb-1.5 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Smoothing recommendation</div>
-            <div className="px-4 pb-3.5 text-[12px] leading-relaxed text-neutral-700">
-              {smoothed
-                ? "Applied: three 07:30 bookings moved to 10:00–11:00. Projected P90 in the peak improves 3.4 minutes."
-                : "Move three bookings out of 07:30 into the 10:00–11:00 trough. The peak consumes 62% of arrivals against 41% of machine capacity."}
+              {[
+                {k:"Capacity basis",v:"3 RS + 1 EH · 11.4 moves/h"},
+                {k:"Machine minutes committed",v:(apptData.booked*4.8).toFixed(1)+"′"},
+                {k:"Purpose mix",v:"2 pickup · 1 empty · 1 drop"},
+                {k:"Overbooking policy",v:apptData.over?"1 over — accepted with queue risk":"within capacity",red:apptData.over},
+                {k:"No-show handling",v:apptData.noShow?"slot released to waitlist":"n/a"},
+              ].map(d=>(
+                <div key={d.k} className="flex justify-between gap-3 px-4 py-1.5 border-b border-neutral-200 text-[11.5px]">
+                  <span className="text-neutral-500">{d.k}</span>
+                  <span className={`font-semibold text-right ${d.red?"text-[#d9291c]":""}`}>{d.v}</span>
+                </div>
+              ))}
+              <div className="px-4 pt-3 pb-1.5 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Smoothing recommendation</div>
+              <div className="px-4 pb-3.5 text-[12px] leading-relaxed text-neutral-700">
+                {smoothed
+                  ? "Applied: three 07:30 bookings moved to 10:00–11:00. Projected P90 in the peak improves 3.4 minutes."
+                  : "Move three bookings out of 07:30 into the 10:00–11:00 trough. The peak consumes 62% of arrivals against 41% of machine capacity."}
+              </div>
+              <Button variant="secondary" size="sm" className="mx-4 mb-4 text-[11.5px] justify-start" onClick={()=>setSmoothed(true)}>
+                {smoothed?"Smoothing applied · 3 windows retimed":"Apply smoothing"}
+              </Button>
             </div>
-            <Button variant="secondary" size="sm" className="mx-4 mb-4 text-[11.5px] justify-start" onClick={()=>setSmoothed(true)}>
-              {smoothed?"Smoothing applied · 3 windows retimed":"Apply smoothing"}
-            </Button>
-          </div>
+          )}
         </div>
       )}
     </div>

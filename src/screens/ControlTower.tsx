@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { EVENTS, DIFF_ROWS, Event } from "@/data/yard-ops"
+import { useData } from "@/lib/DataContext"
+import type { Event } from "@/data/yard-ops"
 
 interface Props { focus: string | null }
 
@@ -12,25 +12,29 @@ const CATS: Record<string, string> = {
 }
 
 export default function ControlTower({ focus }: Props) {
+  const { events, diffRows } = useData()
+
   const [sel, setSel] = useState("EV-7741")
   const [cat, setCat] = useState("ALL")
   const [acked, setAcked] = useState(false)
 
   useEffect(() => {
     if (!focus) return
-    const e = EVENTS.find(x => x.title.includes(focus)||x.detail.includes(focus))
+    const e = events.find(x => x.title.includes(focus)||x.detail.includes(focus))
     if (e) setSel(e.id)
-  }, [focus])
+  }, [focus, events])
 
-  const cats = ["ALL", ...Array.from(new Set(EVENTS.map(e => CATS[e.type] || e.type)))]
-  const events = EVENTS.filter(e => cat==="ALL" || CATS[e.type]===cat)
-  const selEvent = events.find(e => e.id===sel) || EVENTS.find(e => e.id===sel) || events[0] || EVENTS[0]
+  const cats = ["ALL", ...Array.from(new Set(events.map(e => CATS[e.type] || e.type)))]
+  const filtered = events.filter(e => cat==="ALL" || CATS[e.type]===cat)
+  const selEvent = filtered.find(e => e.id===sel) || events.find(e => e.id===sel) || filtered[0] || events[0]
 
   function stateLine(e: Event) {
     if (e.state==="replanned") return "Replanned · "+e.auto
     if (e.state==="suppressed") return "Suppressed by stability rules"
     return acked?"Acknowledged":"Awaiting acknowledgement"
   }
+
+  if (!selEvent) return null
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-auto bg-white text-neutral-900">
@@ -50,7 +54,7 @@ export default function ControlTower({ focus }: Props) {
       {/* Metrics */}
       <div className="flex flex-wrap border-b-2 border-neutral-200 flex-none">
         {[
-          {k:"Events today",v:"8",sub:"since 05:41"},
+          {k:"Events today",v:String(events.length),sub:"since 05:41"},
           {k:"Replans accepted",v:"5",sub:"1 suppressed"},
           {k:"Stability index",v:"0.31",sub:"cap 0.40"},
           {k:"Plan adherence",v:"89%",sub:"target ≥85%"},
@@ -80,7 +84,7 @@ export default function ControlTower({ focus }: Props) {
               </button>
             ))}
           </div>
-          {events.map(e=>(
+          {filtered.map(e=>(
             <button key={e.id} onClick={()=>setSel(e.id)}
               className="block w-full text-left px-4 py-3 border-b border-neutral-200 hover:bg-neutral-50 transition-colors"
               style={{ borderLeft:`3px solid ${e.id===sel?"#d9291c":e.state==="awaiting"&&!acked?"#f59e0b":"transparent"}`, background:e.id===sel?"#fef3f2":undefined }}>
@@ -142,7 +146,7 @@ export default function ControlTower({ focus }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {DIFF_ROWS.map(r=>(
+                  {diffRows.map(r=>(
                     <tr key={r.moveId} className="border-b border-neutral-200">
                       <td className="py-2 pl-4 pr-2.5 align-top">
                         <div className="font-bold tabular">{r.moveId}</div>

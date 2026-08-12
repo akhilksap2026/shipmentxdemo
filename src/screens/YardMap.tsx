@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { CONTAINERS, ZONES, MOVES, Container, Zone } from "@/data/yard-data"
-import { TURN_BY_HOUR, CYCLE_BY_TYPE, CAPACITY } from "@/data/yard-ops"
+import { useData } from "@/lib/DataContext"
+import type { Container, Zone } from "@/data/yard-data"
 
 interface Props {
   focus: string | null
@@ -38,6 +38,8 @@ const LEGENDS: Record<ColorMode, [string,string][]> = {
 }
 
 export default function YardMap({ focus, onNavigate }: Props) {
+  const { containers, zones, moves, turnByHour, cycleByType, capacity } = useData()
+
   const [view, setView] = useState<"map"|"dash">("map")
   const [mode, setMode] = useState<ColorMode>("status")
   const [q, setQ] = useState("")
@@ -45,23 +47,31 @@ export default function YardMap({ focus, onNavigate }: Props) {
   const [block, setBlock] = useState(1)
   const [row, setRow] = useState(1)
   const [sel, setSel] = useState<string|null>(() => {
-    const first = CONTAINERS.find(c => c.zone==="A"&&c.block===1&&c.row===1)
+    const first = containers.find(c => c.zone==="A"&&c.block===1&&c.row===1)
     return first?.id || null
   })
 
+  // When DB data replaces seed, update initial selection if needed
+  useEffect(() => {
+    if (!sel && containers.length) {
+      const first = containers.find(c => c.zone==="A"&&c.block===1&&c.row===1)
+      if (first) setSel(first.id)
+    }
+  }, [containers])
+
   useEffect(() => {
     if (!focus) return
-    const c = CONTAINERS.find(x => x.id === focus)
+    const c = containers.find(x => x.id === focus)
     if (c) { setSel(c.id); setZone(c.zone); setBlock(c.block); setRow(c.row); setView("map") }
-  }, [focus])
+  }, [focus, containers])
 
-  const zoneDef = ZONES.find(z => z.id === zone) || ZONES[0]
+  const zoneDef: Zone = zones.find(z => z.id === zone) || zones[0] || { id:"A", name:"", blocks:6, rows:3, slots:10, maxTiers:4, ceiling:0.85, hazmat:false, customs:false }
   const ql = q.trim().toLowerCase()
   const match = (c: Container) => !ql || (c.id+c.consignee+c.vessel+c.address+c.carrierName).toLowerCase().includes(ql)
-  const all = CONTAINERS
+  const all = containers
   const selC = all.find(c => c.id === sel)
 
-  const mapZones = ZONES.filter(z => !"RS".includes(z.id)).map(z => {
+  const mapZones = zones.filter(z => !"RS".includes(z.id)).map(z => {
     const cap = z.blocks*z.rows*z.slots*z.maxTiers
     const used = all.filter(c => c.zone===z.id).length
     const pct = Math.round(used/cap*100)
@@ -275,7 +285,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
                   <div className="px-4 pt-3 pb-1.5 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Open in</div>
                   <div className="flex flex-col gap-1.5 px-4 pb-4">
                     <Button variant="secondary" size="sm" className="text-[11.5px] justify-start" onClick={()=>onNavigate("S4",selC.id)}>
-                      {MOVES.some(m=>m.containerId===selC.id)?"Planned move in the night plan →":"No planned move today · open the plan →"}
+                      {moves.some(m=>m.containerId===selC.id)?"Planned move in the night plan →":"No planned move today · open the plan →"}
                     </Button>
                     <Button variant="secondary" size="sm" className="text-[11.5px] justify-start" onClick={()=>onNavigate("S7",selC.id)}>Related events in the tower →</Button>
                     <Button variant="secondary" size="sm" className="text-[11.5px] justify-start" onClick={()=>onNavigate("S2",selC.id)}>Container in the gate console →</Button>
@@ -314,7 +324,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
             <div className="border-r-2 border-neutral-200 px-5 py-3">
               <div className="text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Truck turn by hour</div>
               <div className="flex items-end gap-2 h-40 mt-2.5">
-                {TURN_BY_HOUR.map(t=>(
+                {turnByHour.map(t=>(
                   <div key={t.hour} className="flex-1 flex flex-col justify-end gap-0.5 h-full">
                     <div className="bg-neutral-300" style={{height:((t.p90-t.p50)/28*100).toFixed(1)+"%"}} />
                     <div className={t.p50>15?"bg-[#d9291c]":"bg-neutral-800"} style={{height:(t.p50/28*100).toFixed(1)+"%"}} />
@@ -324,7 +334,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
               </div>
               <p className="text-[11px] text-neutral-500 mt-2.5 leading-relaxed">Grey is P90, solid is P50. The 08:00 hour breaches — inbound put-away competes with outbound loading.</p>
               <div className="mt-3.5 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Machine job cycle by move type</div>
-              {CYCLE_BY_TYPE.map(r=>(
+              {cycleByType.map(r=>(
                 <div key={r.type} className="py-1.5 border-b border-neutral-200">
                   <div className="flex justify-between text-[11.5px]">
                     <span>{r.type}</span>
@@ -335,7 +345,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
             </div>
             <div className="px-5 py-3">
               <div className="text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Machine-hours required vs available</div>
-              {CAPACITY.map(c=>(
+              {capacity.map(c=>(
                 <div key={c.month} className="py-2.5 border-b border-neutral-200">
                   <div className="flex justify-between text-[11.5px]">
                     <span className="font-semibold">{c.month} · {c.volume} containers</span>

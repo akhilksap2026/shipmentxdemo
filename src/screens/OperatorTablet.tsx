@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { OPERATOR_TASKS } from "@/data/yard-ops"
+import { useData } from "@/lib/DataContext"
 
 const STEPS = [
   { key:"instruction", title:"Retrieve to staging", tag:"1", label:"Instruction", note:"One instruction per view, large type for cab visibility." },
@@ -11,6 +11,8 @@ const STEPS = [
 ]
 
 export default function OperatorTablet() {
+  const { operatorTasks } = useData()
+
   const [step, setStep] = useState(0)
   const [reason, setReason] = useState<string|null>(null)
   const [quarantine, setQuarantine] = useState(false)
@@ -18,8 +20,10 @@ export default function OperatorTablet() {
 
   const go = (i: number) => setStep(Math.max(0, Math.min(STEPS.length-1, i)))
   const current = STEPS[step]
-  const task = OPERATOR_TASKS[0]
+  const task = operatorTasks[0]
   const codes = ["Wrong container in slot","ID plate unreadable","Yard record out of date"]
+
+  if (!task) return null
 
   const primary: [string, ()=>void] = {
     instruction: ["Accept and start", ()=>go(1)],
@@ -163,7 +167,7 @@ export default function OperatorTablet() {
             {current.key==="done" && (
               <div className="px-3.5 py-3.5 flex flex-col gap-2.5">
                 <div className="font-black text-[22px]">Job cycle 4.9′</div>
-                <div className="text-[13px] leading-relaxed">Accepted 06:19:20, confirmed 06:24:14. Actual duration written to the audit record against a 4.6′ estimate.</div>
+                <div className="text-[13px] leading-relaxed">Accepted 06:19:20, confirmed 06:24:14. Actual duration written to the audit record against a {task.est}′ estimate.</div>
                 <div className="border-t border-neutral-200 pt-2.5 text-[13px] leading-relaxed">Next: <strong>MV-1047 Pre-marshal</strong> at B-02-1-6-2 — resequenced 4 minutes ago by the RS-03 fault.</div>
               </div>
             )}
@@ -199,10 +203,10 @@ export default function OperatorTablet() {
           <div className="px-4 pt-3 pb-2 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Audit written this task</div>
           {[
             {t:"06:19:20",what:"Instruction accepted — job-cycle clock starts"},
-            {t:"06:20:05",what:"Cab OCR read MSCU4419370, mismatch against MSCU4419307"},
+            {t:"06:20:05",what:"Cab OCR read MSCU4419370, mismatch against "+task.container},
             {t:"06:21:48",what:"Exception raised: "+(reason||"reason code pending")},
             {t:"06:22:11",what:"Supervisor approval, 2 photos attached"},
-            {t:"06:24:14",what:"Confirm done — actual 4.9′ against 4.6′ estimate"},
+            {t:"06:24:14",what:"Confirm done — actual 4.9′ against "+task.est+"′ estimate"},
           ].map(a=>(
             <div key={a.t} className="flex gap-3 px-4 py-1.5 text-[11.5px]">
               <span className="w-14 text-neutral-500 tabular">{a.t}</span>
