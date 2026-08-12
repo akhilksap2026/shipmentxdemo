@@ -1,0 +1,51 @@
+Design system: Dense operational dashboard
+
+Apply this visual language consistently across every screen, component, and state in the application.
+
+Typography Load Inter (UI text) and JetBrains Mono (data, codes, timestamps) from Google Fonts. Base size 13px. Use Inter 400/500/600/700. Use mono for any numeric value, ID, timestamp, route, code, or measurement. Never mix them within the same data cell.
+
+Color tokens
+
+--background:       #f4f5f7   /* page ground */
+--surface:          #ffffff   /* cards, panels, table rows */
+--sidebar:          #0f1117   /* navigation shell */
+--sidebar-border:   rgba(255,255,255,0.06)
+--foreground:       #111827   /* primary text */
+--muted:            #6b7280   /* secondary text */
+--subtle:           #9ca3af   /* labels, captions, placeholders */
+--border:           #e5e7eb   /* all dividers and outlines */
+--border-light:     #f3f4f6   /* table row separators */
+--accent:           #dc2626   /* alerts, badges, active states */
+--accent-bg:        #fef2f2   /* tinted surface for accent callouts */
+--active-nav:       rgba(220,38,38,0.08)
+Status palette — use only these, never arbitrary colors:
+
+blue    #2563eb   /* inbound / info */
+purple  #7c3aed   /* staging / pre-marshal */
+amber   #d97706   /* warning / reshuffle */
+green   #059669   /* outbound / success */
+cyan    #0891b2   /* receive / neutral action */
+red     #dc2626   /* alert / exception / at-risk */
+Layout Two-column root grid: 220px sidebar | 1fr main. Main area is a vertical flex column — chrome strips stack at top and bottom, scrollable content lives in the middle. Never let any chrome strip scroll. Sidebar never collapses on desktop; on mobile stack it as a bottom tab bar.
+
+Sidebar Background #0f1117. Logo block at top (32×32 colored square + app name 700 + subtitle 9px uppercase 0.12em tracking #6b7280). Search input below logo: rgba(255,255,255,0.06) background, 1px same border, 11px placeholder. Nav groups: 9px uppercase 0.1em tracking group labels in #4b5563. Nav items: 12px, #9ca3af default, white + 600 weight when active, 2px left border #dc2626 when active, rgba(220,38,38,0.08) background when active. Badges: 10px 600 weight pill, rgba(255,255,255,0.15) default, #dc2626 for alert count. User row pinned to bottom with avatar + name + role.
+
+Top chrome bars All bars: white background, 1px #e5e7eb bottom border, flexShrink: 0. Heights: banner 34px, topbar 44px, page header auto, KPI row auto. Use 9px uppercase 0.1em tracking for all section/column labels throughout the app.
+
+Buttons Default: white bg, 1px #e5e7eb border, 5px radius, 11px 500 weight, #374151 text, 6px 10px padding. Primary: #111827 bg, white text, same border color, 600 weight. Danger/publish: same as primary but use sparingly. Toggle groups (persona switcher, source selector): borderless buttons inside a single 1px #e5e7eb rounded container; active segment gets #111827 bg + white text. Filter pills: same as default button but active state is #111827 bg + white text.
+
+Data tables Header row: #f9fafb bg, sticky top, 9px uppercase 0.1em tracking #9ca3af labels, 8px 12px cell padding. Body rows: 1px #f3f4f6 bottom border, #fafafa for completed/past rows, #f0f4ff for selected row, white for default. Row height ~38px. Hover: subtle #f9fafb tint. Always include a status sub-line (smaller, muted) beneath the primary value in complex cells.
+
+KPI / stat tiles Equal-flex row inside a white panel with 1px #e5e7eb right border between tiles. Inside each tile: 9px uppercase label → 26px mono numeral (600 weight, 1.0 line-height) → 11px muted sub-label. Alert tiles use #dc2626 for the numeral only.
+
+Detail / side panels Fixed width (240–300px), white bg, 1px #e5e7eb left border. Tab bar at top: 10px uppercase 700 weight tabs, 2px #dc2626 bottom border on active tab, #dc2626 text on active, #9ca3af on inactive. Content padding 16px. Callout boxes (e.g. "why" explanations): #fef2f2 bg, 1px #fecaca border, 6px radius, 9px uppercase #dc2626 label, 12px body text.
+
+Timeline / schedule component Fixed height (200–240px), pinned to bottom. 2px #e5e7eb top border to separate from scrollable content. Header row: title (11px uppercase 700) + subtitle + legend chips (10px label + 10×10px colored square). Operator rows: equal flex height, 1px #f3f4f6 bottom border, 116px label column (name 12px 600 + mono machine-code pill in #f3f4f6 bg), then bar track. Bar heights as percentage of row: active 58%, alert 72%, idle 16%. Colors: active #1f2937, alert #dc2626, idle rgba(0,0,0,0.07). Vertical hour grid lines #f3f4f6 at each hour boundary.
+
+Badges and status indicators Live sync dot: 6px circle #22c55e. Unread/alert dot: 6px #dc2626. Count badge: min-width 18px, height 18px, 9px radius, 10px 600 weight. Severity dot in lists: 6px circle, red for high, amber for medium.
+
+Spacing scale Use multiples of 4px: 4, 8, 12, 16, 20, 24, 32. Panel padding 16px. Page-level horizontal padding 20px. Section gaps 8px. Inline gaps 6–10px. Never use arbitrary values.
+
+Micro-interactions All interactive elements: transition: all 0.1s. Hover on rows: #f9fafb. Hover on buttons: 5% darker bg. Bar heights in timeline: transition: height 0.15s ease. Focus rings: 2px #2563eb offset 2px. Scrollbars: 4px wide, transparent track, rgba(0,0,0,0.15) thumb, hidden until hover.
+
+Do not use Rounded hero cards, gradient backgrounds, drop shadows on table rows, colored sidebars (other than #0f1117), icon-heavy nav, skeleton loaders, or any font other than Inter and JetBrains Mono.

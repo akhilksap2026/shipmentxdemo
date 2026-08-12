@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { DataProvider, useData } from "@/lib/DataContext"
 import type { RefreshSlice } from "@/lib/DataContext"
 import NightPlanner from "@/screens/NightPlanner"
@@ -11,22 +9,22 @@ import OperatorTablet from "@/screens/OperatorTablet"
 import SettingsScreen from "@/screens/Settings"
 import CommandPalette from "@/components/CommandPalette"
 
-type Screen = "plan" | "yard" | "gate" | "tower" | "operator" | "settings"
+type Screen  = "plan" | "yard" | "gate" | "tower" | "operator" | "settings"
 type Persona = "manager" | "ops" | "operator"
 
 const PERSONAS: { id: Persona; name: string; sub: string; screens: Screen[] | "*" }[] = [
-  { id: "manager", name: "Manager", sub: "Yard Manager · full authority", screens: "*" },
-  { id: "ops",     name: "Ops",     sub: "Gate & yard front line",       screens: ["yard", "gate"] },
-  { id: "operator",name: "Operator",sub: "Tablet · device-bound",        screens: ["operator"] },
+  { id: "manager",  name: "Manager",  sub: "Yard Manager · full authority", screens: "*" },
+  { id: "ops",      name: "Ops",      sub: "Gate & yard front line",        screens: ["yard", "gate"] },
+  { id: "operator", name: "Operator", sub: "Tablet · device-bound",         screens: ["operator"] },
 ]
 
-const NAV_ITEMS: { id: Screen; group: string; name: string; crumb: string; badgeBg?: "brand" | "secondary" }[] = [
-  { id: "tower",    group: "Today's operations", name: "Control Tower",    crumb: "Control Tower",    badgeBg: "brand" },
-  { id: "plan",     group: "Today's operations", name: "Night-before Plan",crumb: "Night-before Plan",badgeBg: "secondary" },
-  { id: "yard",     group: "Yard",               name: "Yard Map",         crumb: "Yard Map" },
-  { id: "gate",     group: "Movement",           name: "Gate & Appointments",crumb: "Gate & Appointments", badgeBg: "brand" },
-  { id: "operator", group: "Movement",           name: "Operator Tablet",  crumb: "Operator Tablet" },
-  { id: "settings", group: "Configuration",      name: "Settings",         crumb: "Settings" },
+const NAV_ITEMS: { id: Screen; group: string; name: string; crumb: string; alert?: boolean }[] = [
+  { id: "tower",    group: "Today's operations", name: "Control Tower",      crumb: "Control Tower",      alert: true },
+  { id: "plan",     group: "Today's operations", name: "Night-before Plan",  crumb: "Night-before Plan"  },
+  { id: "yard",     group: "Yard",               name: "Yard Map",           crumb: "Yard Map"           },
+  { id: "gate",     group: "Movement",           name: "Gate & Appointments",crumb: "Gate & Appointments",alert: true },
+  { id: "operator", group: "Movement",           name: "Operator Tablet",    crumb: "Operator Tablet"    },
+  { id: "settings", group: "Configuration",      name: "Settings",           crumb: "Settings"           },
 ]
 const NAV_GROUPS = [...new Set(NAV_ITEMS.map(i => i.group))]
 
@@ -39,7 +37,7 @@ const STORY = [
 ]
 
 const ALL_SLICES: RefreshSlice[] = [
-  'moves', 'containers', 'events', 'visits', 'lanes', 'appointments', 'diffRows', 'operatorTasks',
+  "moves", "containers", "events", "visits", "lanes", "appointments", "diffRows", "operatorTasks",
 ]
 
 function allowed(persona: Persona, screen: Screen): boolean {
@@ -52,32 +50,32 @@ function allowed(persona: Persona, screen: Screen): boolean {
 function AppShell() {
   const { moves, events, visits, refresh } = useData()
 
-  const [persona,    setPersona]    = useState<Persona>("manager")
-  const [screen,     setScreen]     = useState<Screen>("plan")
-  const [focus,      setFocus]      = useState<string | null>(null)
-  const [storyIdx,   setStoryIdx]   = useState(0)
-  const [paletteOpen,setPaletteOpen]= useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-  const [syncLabel,  setSyncLabel]  = useState("just now")
+  const [persona,     setPersona]     = useState<Persona>("manager")
+  const [screen,      setScreen]      = useState<Screen>("plan")
+  const [focus,       setFocus]       = useState<string | null>(null)
+  const [storyIdx,    setStoryIdx]    = useState(0)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [refreshing,  setRefreshing]  = useState(false)
+  const [syncLabel,   setSyncLabel]   = useState("just now")
   const lastSyncRef = useRef(Date.now())
 
-  // ── Dynamic badge counts ───────────────────────────────────────────────────
+  // ── Badge counts ─────────────────────────────────────────────────────────────
   const BADGE_COUNT: Partial<Record<Screen, number>> = {
     tower: events.filter(e => e.state === "awaiting").length || events.length,
     plan:  moves.length,
     gate:  visits.filter(v => ["IN_QUEUE", "APPROACHING", "EXPECTED"].includes(v.state)).length,
   }
 
-  // ── Live-sync label ────────────────────────────────────────────────────────
+  // ── Live-sync label ───────────────────────────────────────────────────────────
   useEffect(() => {
-    const timer = setInterval(() => {
+    const t = setInterval(() => {
       const s = Math.floor((Date.now() - lastSyncRef.current) / 1000)
-      setSyncLabel(s < 60 ? `${s} s ago` : `${Math.floor(s / 60)} m ago`)
+      setSyncLabel(s < 60 ? `${s}s ago` : `${Math.floor(s / 60)}m ago`)
     }, 10_000)
-    return () => clearInterval(timer)
+    return () => clearInterval(t)
   }, [])
 
-  // ── ⌘K shortcut ───────────────────────────────────────────────────────────
+  // ── ⌘K shortcut ──────────────────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -89,7 +87,7 @@ function AppShell() {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────────
   async function handleRefresh() {
     if (refreshing) return
     setRefreshing(true)
@@ -122,7 +120,7 @@ function AppShell() {
     const p2 = PERSONAS.find(x => x.id === id)!
     const first: Screen = p2.screens === "*"
       ? screen
-      : (p2.screens as Screen[]).includes(screen) ? screen : p2.screens[0]
+      : (p2.screens as Screen[]).includes(screen) ? screen : (p2.screens as Screen[])[0]
     setPersona(id); setScreen(first)
   }
 
@@ -139,40 +137,52 @@ function AppShell() {
         onNavigate={(target, f) => { navigate(target, f); setPaletteOpen(false) }}
       />
 
-      <div className="grid h-screen" style={{
-        gridTemplateColumns: "232px minmax(0,1fr)",
-        gridTemplateRows: "48px 34px minmax(0,1fr)",
-      }}>
-
-        {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-        <div className="row-span-3 bg-sidebar-bg text-sidebar-text flex flex-col overflow-auto"
-             style={{ gridRow: "1 / -1" }}>
-
+      <div
+        className="grid h-screen overflow-hidden"
+        style={{ gridTemplateColumns: "220px minmax(0,1fr)", gridTemplateRows: "44px 34px minmax(0,1fr)" }}
+      >
+        {/* ── Sidebar ───────────────────────────────────────────────────────── */}
+        <div
+          className="flex flex-col overflow-y-auto overflow-x-hidden"
+          style={{ gridRow: "1 / -1", background: "#0f1117", borderRight: "1px solid rgba(255,255,255,0.06)" }}
+        >
           {/* Logo */}
-          <div className="flex items-center gap-2.5 px-4 py-3 border-b border-sidebar-border">
-            <div className="flex-none w-8 h-8 bg-[#d9291c] text-white flex items-center justify-center text-xs font-black tracking-tight">YO</div>
-            <div className="flex flex-col gap-px leading-tight">
-              <span className="font-black text-[13.5px] tracking-tight">YardOS</span>
-              <span className="text-[9.5px] tracking-widest uppercase text-sidebar-faint">Operations Console</span>
+          <div className="flex items-center gap-2.5 px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <div
+              className="flex-none flex items-center justify-center text-white font-black text-[11px] tracking-tight"
+              style={{ width: 32, height: 32, background: "#dc2626" }}
+            >
+              YO
+            </div>
+            <div className="flex flex-col gap-0.5 leading-none">
+              <span className="font-bold text-[13px] tracking-tight text-white">YardOS</span>
+              <span className="ds-label" style={{ color: "#6b7280" }}>Operations Console</span>
             </div>
           </div>
 
-          {/* Search — opens CommandPalette */}
+          {/* Search */}
           <div className="px-3 py-2.5">
             <button
               onClick={() => setPaletteOpen(true)}
-              className="w-full flex items-center gap-2 bg-sidebar-active border border-[#253656] px-2 py-1.5 text-[11.5px] text-sidebar-faint hover:border-[#4a6080] transition-colors"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left"
+              style={{
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                fontSize: 11,
+                color: "#6b7280",
+              }}
             >
-              <span className="opacity-70">⌕</span>
-              <span>Search container, plate, order…</span>
-              <span className="ml-auto text-[10px] text-[#5c6c8a]">⌘K</span>
+              <span style={{ opacity: 0.6, fontSize: 13 }}>⌕</span>
+              <span>Search container, plate…</span>
+              <span className="ml-auto font-mono" style={{ fontSize: 10, color: "#4b5563" }}>⌘K</span>
             </button>
           </div>
 
           {/* Nav */}
           {NAV_GROUPS.map(group => (
-            <div key={group} className="mt-2.5">
-              <div className="px-4 pb-1.5 text-[9.5px] tracking-[0.14em] uppercase text-sidebar-faint">
+            <div key={group} className="mt-2">
+              {/* Group label */}
+              <div className="px-4 pb-1.5 ds-label" style={{ color: "#4b5563" }}>
                 {group}
               </div>
               {NAV_ITEMS.filter(item => item.group === group).map(item => {
@@ -184,24 +194,34 @@ function AppShell() {
                     key={item.id}
                     onClick={() => { if (isAllowed) setScreen(item.id) }}
                     title={!isAllowed ? `${p.name} cannot access ${item.name}` : undefined}
-                    className="w-full flex items-center gap-2.5 px-4 py-[7px] text-left text-[12.5px] transition-colors hover:bg-sidebar-active"
+                    className="w-full flex items-center gap-2 px-4 py-[7px] text-left"
                     style={{
-                      borderLeft:  `3px solid ${isActive ? "#d9291c" : "transparent"}`,
-                      background:  isActive ? "#1a2842" : "transparent",
-                      color:       isActive ? "#fff" : isAllowed ? "#e6ebf2" : "#5c6c8a",
-                      fontWeight:  isActive ? 700 : 500,
-                      opacity:     isAllowed ? 1 : 0.45,
-                      cursor:      isAllowed ? "pointer" : "not-allowed",
+                      fontSize: 12,
+                      fontWeight: isActive ? 600 : 400,
+                      color: isActive ? "#ffffff" : isAllowed ? "#9ca3af" : "#374151",
+                      background: isActive ? "rgba(220,38,38,0.08)" : "transparent",
+                      borderLeft: `2px solid ${isActive ? "#dc2626" : "transparent"}`,
+                      opacity: isAllowed ? 1 : 0.4,
+                      cursor: isAllowed ? "pointer" : "not-allowed",
+                      paddingLeft: isActive ? 14 : 16,  /* account for 2px border */
                     }}
                   >
-                    {/* Active indicator — vertical dash, not a checkbox */}
-                    <span
-                      className="flex-none w-1 h-3.5 rounded-sm"
-                      style={{ background: isActive ? "#d9291c" : "transparent" }}
-                    />
-                    <span className="flex-1">{item.name}</span>
-                    {item.badgeBg && badge != null && badge > 0 && (
-                      <Badge variant={item.badgeBg} className="text-[10px]">{badge}</Badge>
+                    <span className="flex-1 truncate">{item.name}</span>
+                    {badge != null && badge > 0 && (
+                      <span
+                        className="flex-none flex items-center justify-center font-semibold"
+                        style={{
+                          minWidth: 18,
+                          height: 18,
+                          borderRadius: 9,
+                          fontSize: 10,
+                          background: item.alert ? "#dc2626" : "rgba(255,255,255,0.15)",
+                          color: "#fff",
+                          padding: "0 5px",
+                        }}
+                      >
+                        {badge}
+                      </span>
                     )}
                   </button>
                 )
@@ -209,43 +229,64 @@ function AppShell() {
             </div>
           ))}
 
-          {/* Persona footer */}
-          <div className="mt-auto px-3.5 py-3 border-t border-sidebar-border flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-[#d9291c] text-white flex items-center justify-center text-[11px] font-black">
+          {/* User row — pinned to bottom */}
+          <div
+            className="mt-auto flex items-center gap-2.5 px-3.5 py-3"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <div
+              className="flex-none flex items-center justify-center text-white font-black text-[11px]"
+              style={{ width: 32, height: 32, background: "#dc2626", borderRadius: 2 }}
+            >
               {p.name[0]}
             </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-[12px] font-bold">{p.name}</span>
-              <span className="text-[10px] text-sidebar-muted">{p.sub}</span>
+            <div className="flex flex-col leading-tight min-w-0">
+              <span className="text-[12px] font-semibold text-white truncate">{p.name}</span>
+              <span className="text-[10px] truncate" style={{ color: "#6b7280" }}>{p.sub}</span>
             </div>
           </div>
         </div>
 
-        {/* ── Top bar ─────────────────────────────────────────────────────── */}
-        <div className="col-start-2 flex items-center gap-3.5 px-4 border-b border-neutral-200 bg-white">
-          <div className="flex items-baseline gap-2 text-[12.5px]">
-            <span className="text-neutral-500">Today's Operations</span>
-            <span className="text-neutral-400">/</span>
-            <span className="font-bold text-neutral-900">{crumb}</span>
+        {/* ── Topbar ────────────────────────────────────────────────────────── */}
+        <div
+          className="col-start-2 flex items-center gap-3 px-5 bg-white"
+          style={{ borderBottom: "1px solid #e5e7eb", height: 44 }}
+        >
+          {/* Breadcrumb */}
+          <div className="flex items-baseline gap-1.5" style={{ fontSize: 12 }}>
+            <span style={{ color: "#6b7280" }}>Operations</span>
+            <span style={{ color: "#d1d5db" }}>/</span>
+            <span className="font-semibold" style={{ color: "#111827" }}>{crumb}</span>
           </div>
-          <div className="ml-auto flex items-center gap-2.5">
-            {/* Live sync indicator */}
-            <span className="flex items-center gap-1.5 text-[11px] text-neutral-600 px-2.5 py-1 bg-neutral-100 border border-neutral-200">
-              <span className={`w-1.5 h-1.5 inline-block rounded-full ${refreshing ? "bg-amber-400" : "bg-emerald-500"}`} />
-              Live sync · {syncLabel}
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Live sync */}
+            <span
+              className="flex items-center gap-1.5 px-2.5 py-1"
+              style={{ fontSize: 11, color: "#6b7280", background: "#f9fafb", border: "1px solid #e5e7eb" }}
+            >
+              <span
+                className="flex-none rounded-full"
+                style={{ width: 6, height: 6, background: refreshing ? "#d97706" : "#22c55e" }}
+              />
+              Live · {syncLabel}
             </span>
 
-            <span className="text-[10px] tracking-widest uppercase text-neutral-500">Persona</span>
-            <div className="flex">
-              {PERSONAS.map((px, i) => (
+            {/* Persona toggle group */}
+            <div className="flex items-center gap-0 border" style={{ borderColor: "#e5e7eb", borderRadius: 5, overflow: "hidden" }}>
+              <span className="ds-label px-2" style={{ color: "#9ca3af", borderRight: "1px solid #e5e7eb" }}>
+                PERSONA
+              </span>
+              {PERSONAS.map(px => (
                 <button
                   key={px.id}
                   onClick={() => switchPersona(px.id)}
-                  className="text-[11px] px-3 py-1.5 border border-neutral-300 font-bold transition-colors"
+                  className="px-3 py-1.5 font-semibold"
                   style={{
-                    borderRight: i < PERSONAS.length - 1 ? "none" : undefined,
-                    background:  persona === px.id ? "#201e1d" : "transparent",
-                    color:       persona === px.id ? "#fff" : "#201e1d",
+                    fontSize: 11,
+                    background: persona === px.id ? "#111827" : "transparent",
+                    color: persona === px.id ? "#fff" : "#374151",
+                    borderRight: px.id !== "operator" ? "1px solid #e5e7eb" : "none",
                   }}
                 >
                   {px.name}
@@ -253,66 +294,100 @@ function AppShell() {
               ))}
             </div>
 
-            {/* Refresh button — wired to DataContext refresh */}
+            {/* Refresh */}
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="text-[11.5px] px-3 py-1.5 border border-neutral-300 bg-transparent text-neutral-900 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
-              title="Refresh all live data"
+              className="px-3 py-1.5 font-medium disabled:opacity-50"
+              style={{
+                fontSize: 11,
+                background: "transparent",
+                border: "1px solid #e5e7eb",
+                color: "#374151",
+                borderRadius: 5,
+              }}
             >
               {refreshing ? "↻ Syncing…" : "↻ Refresh"}
             </button>
 
-            {/* Notification bell */}
+            {/* Bell */}
             <button
               aria-label="Notifications"
-              className="text-base text-neutral-600 hover:text-neutral-900 px-1 transition-colors"
-              onClick={() => {/* future: open notification drawer */}}
+              className="px-1.5"
+              style={{ fontSize: 14, color: "#9ca3af" }}
+              onClick={() => {}}
             >
               🔔
             </button>
           </div>
         </div>
 
-        {/* ── Story bar ───────────────────────────────────────────────────── */}
-        <div className="col-start-2 flex items-center gap-3 px-4 border-b-2 border-amber-300 bg-amber-50">
-          <Badge variant="amber" className="text-[9.5px]">Demo story</Badge>
-          <span className="text-[12px] text-amber-900">
-            {story.step} — <strong>{story.title}</strong> · {story.persona}
+        {/* ── Story bar ─────────────────────────────────────────────────────── */}
+        <div
+          className="col-start-2 flex items-center gap-3 px-5"
+          style={{
+            background: "#fffbeb",
+            borderBottom: "2px solid #fcd34d",
+            height: 34,
+          }}
+        >
+          <span
+            className="font-semibold px-1.5 py-0.5 ds-label"
+            style={{ background: "#fcd34d", color: "#92400e", letterSpacing: "0.06em" }}
+          >
+            DEMO
           </span>
+          <span style={{ fontSize: 12, color: "#92400e" }}>
+            {story.step} — <strong>{story.title}</strong>
+          </span>
+          <span style={{ fontSize: 11, color: "#a16207" }}>· {story.persona}</span>
           {focus && (
             <button
               onClick={() => setFocus(null)}
-              className="text-[10.5px] px-2 py-0.5 border border-[#d9291c] bg-red-50 text-red-800 font-bold"
+              className="font-semibold"
+              style={{ fontSize: 10.5, padding: "1px 8px", border: "1px solid #dc2626", background: "#fef2f2", color: "#dc2626" }}
             >
-              following {focus} ✕
+              tracking {focus} ✕
             </button>
           )}
           <div className="ml-auto flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => goStory(-1)} className="text-amber-900 border-amber-400 text-[11.5px]">
+            <button
+              onClick={() => goStory(-1)}
+              className="px-3 py-1 font-medium"
+              style={{ fontSize: 11, border: "1px solid #fcd34d", background: "transparent", color: "#92400e", borderRadius: 5 }}
+            >
               ← Back
-            </Button>
-            <Button variant="default" size="sm" onClick={() => goStory(1)} className="text-[11.5px]">
+            </button>
+            <button
+              onClick={() => goStory(1)}
+              className="px-3 py-1 font-semibold"
+              style={{ fontSize: 11, background: "#111827", color: "#fff", border: "1px solid #111827", borderRadius: 5 }}
+            >
               Next step →
-            </Button>
+            </button>
           </div>
         </div>
 
-        {/* ── Main content ────────────────────────────────────────────────── */}
-        <div className="col-start-2 row-start-3 min-w-0 min-h-0 overflow-hidden relative">
+        {/* ── Main content ──────────────────────────────────────────────────── */}
+        <div className="col-start-2 row-start-3 min-w-0 min-h-0 overflow-hidden relative" style={{ background: "#f4f5f7" }}>
           {!ok ? (
-            <div className="h-full flex items-center px-6">
-              <div className="max-w-md">
-                <div className="font-black text-base">{p.name} cannot access {crumb}</div>
-                <div className="text-[12.5px] leading-relaxed mt-2 text-neutral-600">
+            <div className="h-full flex items-start p-5">
+              <div
+                className="p-4"
+                style={{ background: "#fff", border: "1px solid #e5e7eb", maxWidth: 420 }}
+              >
+                <div className="font-semibold text-[13px] mb-1" style={{ color: "#111827" }}>
+                  {p.name} cannot access {crumb}
+                </div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>
                   Switch persona in the top bar to continue.
                 </div>
               </div>
             </div>
-          ) : screen === "plan"     ? <NightPlanner focus={focus} onNavigate={navigate} />
-            : screen === "yard"     ? <YardMap      focus={focus} onNavigate={navigate} />
-            : screen === "gate"     ? <GateConsole  focus={focus} />
-            : screen === "tower"    ? <ControlTower focus={focus} />
+          ) : screen === "plan"     ? <NightPlanner  focus={focus} onNavigate={navigate} />
+            : screen === "yard"     ? <YardMap        focus={focus} onNavigate={navigate} />
+            : screen === "gate"     ? <GateConsole    focus={focus} />
+            : screen === "tower"    ? <ControlTower   focus={focus} />
             : screen === "operator" ? <OperatorTablet />
             : screen === "settings" ? <SettingsScreen />
             : null}
@@ -322,7 +397,7 @@ function AppShell() {
   )
 }
 
-// ── Root — owns the DataProvider ─────────────────────────────────────────────
+// ── Root ──────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <DataProvider>

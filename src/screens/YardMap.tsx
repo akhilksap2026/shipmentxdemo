@@ -19,7 +19,7 @@ type DataSource = "seed" | "live"
 function containerColor(c: Container, mode: ColorMode): string {
   if (mode === "lfd") {
     if (c.hoursToLFD < 0) return "#9b1c1c"
-    if (c.hoursToLFD <= 24) return "#d9291c"
+    if (c.hoursToLFD <= 24) return "#dc2626"
     if (c.hoursToLFD <= 72) return "#f59e0b"
     return "#d1d5db"
   }
@@ -37,7 +37,7 @@ function containerColor(c: Container, mode: ColorMode): string {
 
 const LEGENDS: Record<ColorMode, [string,string][]> = {
   status: [["In yard","#9ca3af"],["Staged","#fbbf24"],["Receiving","#4b5563"],["Customs held","#9b1c1c"]],
-  lfd: [["Breached","#9b1c1c"],["≤24 h","#d9291c"],["≤72 h","#f59e0b"],[">72 h","#d1d5db"]],
+  lfd: [["Breached","#9b1c1c"],["≤24 h","#dc2626"],["≤72 h","#f59e0b"],[">72 h","#d1d5db"]],
   channel: [["Rojo","#9b1c1c"],["Naranja","#f97316"],["Verde","#d1d5db"]],
   dwell: [["<5 d","#d1d5db"],["5–10 d","#6b7280"],["10–18 d","#374151"],[">18 d","#111827"]],
 }
@@ -143,7 +143,7 @@ function ZoomableBlockGrid({ blocks, selectedBlock, onSelectBlock }: {
           const cellW = (BLOCK_W - 16) / Math.max(1, cells.length)
           return (
             <g key={b} style={{ cursor:"pointer" }} onClick={(e) => { if (didDrag.current) { didDrag.current = false; return }; e.stopPropagation(); onSelectBlock(b) }}>
-              <rect x={bx} y={by} width={BLOCK_W} height={BLOCK_H} rx={2} fill={selected?"#fef3f2":"white"} stroke={selected?"#d9291c":"#d1d5db"} strokeWidth={selected?2:1} />
+              <rect x={bx} y={by} width={BLOCK_W} height={BLOCK_H} rx={2} fill={selected?"#fef3f2":"white"} stroke={selected?"#dc2626":"#d1d5db"} strokeWidth={selected?2:1} />
               <text x={bx+8} y={by+15} fontSize={10} fontWeight="bold" fill="#111827" fontFamily="sans-serif">{label}</text>
               <text x={bx+BLOCK_W-8} y={by+15} fontSize={10} fill="#9ca3af" textAnchor="end" fontFamily="sans-serif">{count}</text>
               {cells.map((color, i) => (
@@ -330,7 +330,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
       const selected = c.id===sel; const dim = !!ql && !match(c)
       const bg = containerColor(c,mode)
       const dark = /^#[0-6]/.test(bg)||bg==="#4b5563"||bg==="#374151"||bg==="#111827"||bg==="#9b1c1c"
-      return { c, bg, border:selected?"#d9291c":"#9ca3af", fg:dark?"#fff":"#111827", cursor:"pointer", dim }
+      return { c, bg, border:selected?"#dc2626":"#9ca3af", fg:dark?"#fff":"#111827", cursor:"pointer", dim }
     })
   }))
 
@@ -363,7 +363,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
 
         {/* Data source toggle */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] tracking-widest uppercase text-neutral-500 whitespace-nowrap">Source</span>
+          <span className="ds-label text-neutral-500 whitespace-nowrap">Source</span>
           {(["seed","live"] as DataSource[]).map((src, i, arr) => (
             <button
               key={src}
@@ -425,9 +425,9 @@ export default function YardMap({ focus, onNavigate }: Props) {
           <div className="flex flex-wrap border-b-2 border-neutral-200 flex-none">
             {[{k:"Truck turn P50",v:"13.8′",sub:"target 15′"},{k:"Job cycle P50",v:"4.9′",sub:"target 5′"},{k:"Occupancy",v:"72%",sub:"ceiling 85%"},{k:"Detention at risk 72 h",v:"$8.4k",sub:"31 containers",red:true},{k:"Plan adherence",v:"89%",sub:"target ≥85%"}].map(m=>(
               <div key={m.k} className="flex-1 basis-36 px-5 py-2.5 border-r border-neutral-200 flex flex-col gap-0.5">
-                <span className="text-[10px] tracking-widest uppercase text-neutral-500">{m.k}</span>
+                <span className="ds-label text-neutral-500">{m.k}</span>
                 <div className="flex items-baseline gap-2">
-                  <span className={`font-black text-[19px] leading-none tracking-tight ${m.red?"text-[#d9291c]":""}`}>{m.v}</span>
+                  <span className={`font-black text-[19px] leading-none tracking-tight ${m.red?"text-[#dc2626]":""}`}>{m.v}</span>
                   <span className="text-[11px] text-neutral-500">{m.sub}</span>
                 </div>
               </div>
@@ -441,13 +441,13 @@ export default function YardMap({ focus, onNavigate }: Props) {
               {mapZones.map(({z,pct,over,used,cap})=>(
                 <button key={z.id} onClick={()=>{setZone(z.id);setBlock(1);setRow(1)}}
                   className="block w-full text-left px-4 py-2.5 hover:bg-neutral-50 transition-colors"
-                  style={{ borderLeft:`3px solid ${zone===z.id?"#d9291c":"transparent"}`, background:zone===z.id?"#fef3f2":undefined }}>
+                  style={{ borderLeft:`3px solid ${zone===z.id?"#dc2626":"transparent"}`, background:zone===z.id?"#fef3f2":undefined }}>
                   <div className="flex justify-between text-[12px] font-semibold">
                     <span>{z.name.replace("Zone ","").replace(" — "," · ")}</span>
-                    <span className={`tabular ${over?"text-[#d9291c]":"text-neutral-500"}`}>{pct}%</span>
+                    <span className={`tabular ${over?"text-[#dc2626]":"text-neutral-500"}`}>{pct}%</span>
                   </div>
                   <div className="relative h-1 bg-neutral-200 mt-1.5">
-                    <div className="absolute left-0 top-0 h-1" style={{background:over?"#d9291c":"#374151",width:pct+"%"}} />
+                    <div className="absolute left-0 top-0 h-1" style={{background:over?"#dc2626":"#374151",width:pct+"%"}} />
                     <div className="absolute top-[-2px] h-2 w-0.5 bg-neutral-900" style={{left:Math.round(z.ceiling*100)+"%"}} />
                   </div>
                   <div className="text-[10.5px] text-neutral-500 mt-1">{used} of {cap} slots · ceiling {Math.round(z.ceiling*100)}%</div>
@@ -483,7 +483,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
                     <span className="w-9 text-[10px] text-neutral-500 self-center">T{tier}</span>
                     {cells.map(({c,bg,border,fg,cursor,dim},i)=>(
                       <button key={i} onClick={()=>c&&setSel(c.id)}
-                        className="flex-1 min-w-[52px] h-9 border text-[9.5px] flex flex-col justify-center items-start px-1.5 gap-px hover:outline hover:outline-2 hover:outline-[#d9291c] transition-all"
+                        className="flex-1 min-w-[52px] h-9 border text-[9.5px] flex flex-col justify-center items-start px-1.5 gap-px hover:outline hover:outline-2 hover:outline-[#dc2626] transition-all"
                         style={{background:bg,borderColor:border,color:fg,cursor,opacity:dim?0.3:1}}>
                         {c && <><span className="font-bold">{c.id.slice(0,4)}</span><span className="opacity-75">{c.id.slice(4)} · {c.hoursToLFD<0?"−"+Math.abs(c.hoursToLFD):c.hoursToLFD}h</span></>}
                       </button>
@@ -525,7 +525,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
                   ].map(([k,v,red])=>(
                     <div key={String(k)} className="flex justify-between gap-3 px-4 py-2 border-b border-neutral-200 text-[11.5px]">
                       <span className="text-neutral-500">{k}</span>
-                      <span className={`font-semibold text-right ${red?"text-[#d9291c]":""}`}>{String(v)}</span>
+                      <span className={`font-semibold text-right ${red?"text-[#dc2626]":""}`}>{String(v)}</span>
                     </div>
                   ))}
                   <div className="px-4 pt-3 pb-1.5 text-[10px] tracking-widests uppercase text-neutral-500 font-bold">Move history</div>
@@ -601,7 +601,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
                     key={blk}
                     onClick={() => { setLiveBlock(blk); setLiveRow(1); setSelSlot(null) }}
                     className="block w-full text-left px-4 py-2.5 hover:bg-neutral-50 transition-colors"
-                    style={{ borderLeft:`3px solid ${activeLiveBlock===blk?"#d9291c":"transparent"}`, background:activeLiveBlock===blk?"#fef3f2":undefined }}
+                    style={{ borderLeft:`3px solid ${activeLiveBlock===blk?"#dc2626":"transparent"}`, background:activeLiveBlock===blk?"#fef3f2":undefined }}
                   >
                     <div className="flex justify-between text-[12px] font-semibold">
                       <span className="flex items-center gap-1.5">
@@ -664,13 +664,13 @@ export default function YardMap({ focus, onNavigate }: Props) {
                               const occupied = slot.occupied_container_id != null
                               const isHazmat = slot.is_hazmat_approved
                               const bg = occupied && isHazmat ? "#f97316" : occupied ? "#374151" : isHazmat ? "#fed7aa" : "transparent"
-                              const border = selSlot === slot.id ? "#d9291c" : "#9ca3af"
+                              const border = selSlot === slot.id ? "#dc2626" : "#9ca3af"
                               const fg = (occupied && !isHazmat) ? "#fff" : "#111827"
                               const container = occupied ? backendContainers.find(c => c.id === slot.occupied_container_id) : null
                               return (
                                 <button key={bay}
                                   onClick={() => occupied && setSelSlot(slot.id)}
-                                  className="flex-1 min-w-[52px] h-9 border text-[9.5px] flex flex-col justify-center items-start px-1.5 gap-px hover:outline hover:outline-2 hover:outline-[#d9291c] transition-all"
+                                  className="flex-1 min-w-[52px] h-9 border text-[9.5px] flex flex-col justify-center items-start px-1.5 gap-px hover:outline hover:outline-2 hover:outline-[#dc2626] transition-all"
                                   style={{ background:bg, borderColor:border, color:fg, cursor:occupied?"pointer":"default" }}
                                 >
                                   {container && <>
@@ -719,7 +719,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
                     })().map(([k,v,red]) => (
                       <div key={k} className="flex justify-between gap-3 px-4 py-2 border-b border-neutral-200 text-[11.5px]">
                         <span className="text-neutral-500">{k}</span>
-                        <span className={`font-semibold text-right ${red?"text-[#d9291c]":""}`}>{v}</span>
+                        <span className={`font-semibold text-right ${red?"text-[#dc2626]":""}`}>{v}</span>
                       </div>
                     ))}
 
@@ -784,10 +784,10 @@ export default function YardMap({ focus, onNavigate }: Props) {
               <div key={c.k} className="flex-1 basis-52 px-5 py-3.5 border-r border-neutral-200">
                 <div className="flex justify-between items-baseline">
                   <span className="text-[10px] tracking-widests uppercase text-neutral-500">{c.k}</span>
-                  <span className={`text-[10px] font-bold tracking-wider ${c.red?"text-[#d9291c]":""}`}>{c.verdict}</span>
+                  <span className={`text-[10px] font-bold tracking-wider ${c.red?"text-[#dc2626]":""}`}>{c.verdict}</span>
                 </div>
                 <div className="flex items-baseline gap-2 mt-1.5">
-                  <span className={`font-black text-[26px] leading-none tracking-tight ${c.red?"text-[#d9291c]":""}`}>{c.v}</span>
+                  <span className={`font-black text-[26px] leading-none tracking-tight ${c.red?"text-[#dc2626]":""}`}>{c.v}</span>
                   <span className="text-[11.5px] text-neutral-500">target {c.target} · baseline {c.baseline}</span>
                 </div>
               </div>
@@ -801,7 +801,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
                 {turnByHour.map(t=>(
                   <div key={t.hour} className="flex-1 flex flex-col justify-end gap-0.5 h-full">
                     <div className="bg-neutral-300" style={{height:((t.p90-t.p50)/28*100).toFixed(1)+"%"}} />
-                    <div className={t.p50>15?"bg-[#d9291c]":"bg-neutral-800"} style={{height:(t.p50/28*100).toFixed(1)+"%"}} />
+                    <div className={t.p50>15?"bg-[#dc2626]":"bg-neutral-800"} style={{height:(t.p50/28*100).toFixed(1)+"%"}} />
                     <span className="text-[9.5px] text-neutral-500">{t.hour}</span>
                   </div>
                 ))}
@@ -812,7 +812,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
                 <div key={r.type} className="py-1.5 border-b border-neutral-200">
                   <div className="flex justify-between text-[11.5px]">
                     <span>{r.type}</span>
-                    <span className="tabular text-neutral-500">P50 <strong className={r.p50>5?"text-[#d9291c]":""}>{r.p50.toFixed(1)}′</strong> · P90 {r.p90.toFixed(1)}′ · n={r.n}</span>
+                    <span className="tabular text-neutral-500">P50 <strong className={r.p50>5?"text-[#dc2626]":""}>{r.p50.toFixed(1)}′</strong> · P90 {r.p90.toFixed(1)}′ · n={r.n}</span>
                   </div>
                 </div>
               ))}
@@ -838,10 +838,10 @@ export default function YardMap({ focus, onNavigate }: Props) {
                 <div key={c.month} className="py-2.5 border-b border-neutral-200">
                   <div className="flex justify-between text-[11.5px]">
                     <span className="font-semibold">{c.month} · {c.volume} containers</span>
-                    <span className={`tabular ${c.breach?"text-[#d9291c]":"text-neutral-600"}`}>{c.required.toFixed(1)} req / {c.available.toFixed(1)} avail</span>
+                    <span className={`tabular ${c.breach?"text-[#dc2626]":"text-neutral-600"}`}>{c.required.toFixed(1)} req / {c.available.toFixed(1)} avail</span>
                   </div>
                   <div className="relative h-2 bg-neutral-100 mt-1.5">
-                    <div className={c.breach?"bg-[#d9291c]":"bg-neutral-600"} style={{position:"absolute",left:0,top:0,bottom:0,width:Math.min(100,c.required/55*100).toFixed(0)+"%"}} />
+                    <div className={c.breach?"bg-[#dc2626]":"bg-neutral-600"} style={{position:"absolute",left:0,top:0,bottom:0,width:Math.min(100,c.required/55*100).toFixed(0)+"%"}} />
                     <div className="absolute top-[-2px] h-3 w-0.5 bg-neutral-900" style={{left:(c.available/55*100).toFixed(0)+"%"}} />
                   </div>
                   <div className="text-[10.5px] text-neutral-500 mt-1">{c.breach?"breach — "+(c.required-c.available).toFixed(1)+" machine-hours short":"within available hours"}</div>
@@ -864,7 +864,7 @@ export default function YardMap({ focus, onNavigate }: Props) {
                         <div key={p.day} className="flex-1 flex flex-col justify-end items-center gap-0.5 h-full min-w-[18px]">
                           <div className="w-full relative flex items-end justify-center h-full">
                             <div className="absolute bottom-0 w-full opacity-30 bg-neutral-400" style={{height:capH+"%"}} />
-                            <div className={`w-[60%] ${p.over_capacity?"bg-[#d9291c]":"bg-neutral-700"}`} style={{height:occH+"%"}} />
+                            <div className={`w-[60%] ${p.over_capacity?"bg-[#dc2626]":"bg-neutral-700"}`} style={{height:occH+"%"}} />
                           </div>
                           <span className="text-[8px] text-neutral-500 rotate-45 origin-left mt-1">{p.day.slice(5)}</span>
                         </div>

@@ -39,11 +39,12 @@ const KIND_BADGE: Record<ResultKind, string> = {
   event: "Event",
 }
 
+// Status palette only — container=blue, move=purple, visit=green, event=red
 const KIND_COLOR: Record<ResultKind, string> = {
-  container: "#1a5c8a",
-  move: "#7a3d00",
-  visit: "#0a6640",
-  event: "#6b0000",
+  container: "#2563eb",
+  move: "#7c3aed",
+  visit: "#059669",
+  event: "#dc2626",
 }
 
 const SCREEN_LABEL: Record<string, string> = {
@@ -176,12 +177,12 @@ export default function CommandPalette({ open, onClose, onNavigate }: Props) {
         />
         <Dialog.Content
           className="fixed z-50 left-1/2 top-[18%] -translate-x-1/2 w-full max-w-[600px] bg-white shadow-2xl flex flex-col"
-          style={{ maxHeight: "60vh" }}
+          style={{ maxHeight: "60vh", borderRadius: 5 }}
           aria-label="Search command palette"
           onEscapeKeyDown={onClose}
         >
           {/* Input row */}
-          <div className="flex items-center gap-2.5 px-4 py-3 border-b-2 border-neutral-200 flex-none">
+          <div className="flex items-center gap-2 px-4 py-3 border-b-2 border-neutral-200 flex-none">
             <span className="text-neutral-400 text-base select-none">⌕</span>
             <input
               ref={inputRef}
@@ -195,11 +196,12 @@ export default function CommandPalette({ open, onClose, onNavigate }: Props) {
               <button
                 onClick={() => { setQuery(""); inputRef.current?.focus() }}
                 className="text-neutral-400 hover:text-neutral-700 text-xs px-1"
+                style={{ borderRadius: 5 }}
               >
                 ✕
               </button>
             )}
-            <kbd className="text-[10px] text-neutral-400 border border-neutral-300 px-1.5 py-0.5 font-mono select-none">
+            <kbd className="text-[10px] text-neutral-400 border border-neutral-300 px-1 py-0 font-mono select-none" style={{ borderRadius: 5 }}>
               ESC
             </kbd>
           </div>
@@ -223,23 +225,34 @@ export default function CommandPalette({ open, onClose, onNavigate }: Props) {
                     aria-selected={i === activeIdx}
                     onClick={() => select(r)}
                     onMouseEnter={() => setActiveIdx(i)}
-                    className="flex items-baseline gap-2.5 px-4 py-2.5 cursor-pointer transition-colors"
+                    className="flex items-baseline gap-2 px-4 cursor-pointer transition-colors border-b"
                     style={{
-                      background: i === activeIdx ? "#f5f5f5" : "transparent",
-                      borderLeft: `3px solid ${i === activeIdx ? "#d9291c" : "transparent"}`,
+                      minHeight: 38,
+                      borderBottomColor: "#f3f4f6",
+                      background: i === activeIdx ? "#fef2f2" : "transparent",
+                      borderLeft: `3px solid ${i === activeIdx ? "#dc2626" : "transparent"}`,
+                      paddingTop: 8,
+                      paddingBottom: 8,
                     }}
                   >
                     {/* Kind badge */}
                     <span
-                      className="flex-none text-[9.5px] font-bold tracking-wider px-1.5 py-0.5 uppercase"
-                      style={{ color: KIND_COLOR[r.kind], background: KIND_COLOR[r.kind] + "18" }}
+                      className="flex-none text-[9px] font-bold tracking-wider px-1 py-0 uppercase ds-label"
+                      style={{
+                        color: KIND_COLOR[r.kind],
+                        background: KIND_COLOR[r.kind] + "18",
+                        paddingLeft: 6,
+                        paddingRight: 6,
+                        paddingTop: 2,
+                        paddingBottom: 2,
+                      }}
                     >
                       {KIND_BADGE[r.kind]}
                     </span>
 
                     {/* Label + sub */}
                     <span className="flex-1 min-w-0">
-                      <span className="font-bold text-[13px] text-neutral-900">{r.label}</span>
+                      <span className="font-bold text-[13px] text-neutral-900 font-mono">{r.label}</span>
                       <span className="ml-2 text-[11.5px] text-neutral-500 truncate">{r.sub}</span>
                     </span>
 
@@ -255,11 +268,15 @@ export default function CommandPalette({ open, onClose, onNavigate }: Props) {
 
           {/* Footer hint */}
           {results.length > 0 && (
-            <div className="flex items-center gap-4 px-4 py-2 border-t border-neutral-200 flex-none bg-neutral-50 text-[10.5px] text-neutral-400">
-              <span><kbd className="font-mono border border-neutral-300 px-1">↑</kbd> <kbd className="font-mono border border-neutral-300 px-1">↓</kbd> navigate</span>
-              <span><kbd className="font-mono border border-neutral-300 px-1">↵</kbd> open</span>
-              <span><kbd className="font-mono border border-neutral-300 px-1">Esc</kbd> close</span>
-              <span className="ml-auto">{results.length} result{results.length !== 1 ? "s" : ""}</span>
+            <div className="flex items-center gap-4 px-4 py-2 border-t border-neutral-200 flex-none bg-[#f9fafb] text-[10.5px] text-neutral-400">
+              <span>
+                <kbd className="font-mono border border-neutral-300 px-1" style={{ borderRadius: 5 }}>↑</kbd>{" "}
+                <kbd className="font-mono border border-neutral-300 px-1" style={{ borderRadius: 5 }}>↓</kbd>{" "}
+                navigate
+              </span>
+              <span><kbd className="font-mono border border-neutral-300 px-1" style={{ borderRadius: 5 }}>↵</kbd> open</span>
+              <span><kbd className="font-mono border border-neutral-300 px-1" style={{ borderRadius: 5 }}>Esc</kbd> close</span>
+              <span className="ml-auto font-mono">{results.length} result{results.length !== 1 ? "s" : ""}</span>
             </div>
           )}
         </Dialog.Content>

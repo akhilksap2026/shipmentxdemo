@@ -184,26 +184,34 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
   }) {
     const typeDisplay = (m as { typeLabel?: string }).typeLabel ?? TYPE_LABEL[m.type] ?? m.type
     const stateDisplay = ((m as { stateLabel?: string }).stateLabel ?? m.state ?? "").toLowerCase()
+    const isCompleted = m.state === "done" || m.state === "complete" || m.state === "completed"
     return (
       <tr
         onClick={onClick}
-        className="cursor-pointer hover:bg-neutral-50 border-b border-neutral-200 transition-colors"
-        style={{ background: isSelected ? "#fef3f2" : undefined }}
+        className="cursor-pointer hover:bg-[#f9fafb] transition-colors"
+        style={{
+          background: isSelected ? "#fef3f2" : isCompleted ? "#fafafa" : undefined,
+          borderBottom: "1px solid #f3f4f6",
+          minHeight: 38,
+        }}
       >
-        <td className="py-2 pl-4 pr-2.5 tabular text-neutral-500" style={{ borderLeft: `3px solid ${isSelected ? "#d9291c" : m.frozen ? "#ccc" : "transparent"}` }}>
+        <td
+          className="py-2 pl-4 pr-2.5 font-mono text-[#9ca3af]"
+          style={{ borderLeft: `3px solid ${isSelected ? "#dc2626" : m.frozen ? "#ccc" : "transparent"}` }}
+        >
           {String(m.seq).padStart(3, "0")}
         </td>
-        <td className="px-2.5 py-2 tabular whitespace-nowrap">{m.start}–{m.end}</td>
-        <td className="px-2.5 py-2">
+        <td className="px-3 py-2 font-mono whitespace-nowrap">{m.start}–{m.end}</td>
+        <td className="px-3 py-2">
           <div className="font-bold">{typeDisplay}</div>
-          <div className="text-[11px] text-neutral-500 tabular">{m.containerId}</div>
+          <div className="text-[11px] text-[#9ca3af] font-mono">{m.containerId}</div>
         </td>
-        <td className="px-2.5 py-2 tabular text-neutral-600 whitespace-nowrap">{m.from} → {m.to}</td>
-        <td className="px-2.5 py-2 whitespace-nowrap">
+        <td className="px-3 py-2 font-mono text-[#374151] whitespace-nowrap">{m.from} → {m.to}</td>
+        <td className="px-3 py-2 whitespace-nowrap">
           <div>{m.operatorName}</div>
-          <div className="text-[11px] text-neutral-500">{m.equipment} · {stateDisplay}</div>
+          <div className="text-[11px] text-[#9ca3af]">{m.equipment} · {stateDisplay}</div>
         </td>
-        <td className="px-2.5 py-2 pl-2.5 pr-4 text-right tabular font-semibold">{m.estMin.toFixed(1)}′</td>
+        <td className="px-3 py-2 text-right font-mono font-semibold">{m.estMin.toFixed(1)}′</td>
       </tr>
     )
   }
@@ -213,45 +221,60 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
   const engineSelMove = engineMoves.find(m => m.id === engineSel) || engineMoves[0] || null
 
   return (
-    <div className="relative flex flex-col h-full min-h-0 overflow-auto bg-white text-neutral-900">
+    <div className="relative flex flex-col h-full min-h-0 overflow-auto bg-[#f4f5f7] text-neutral-900">
 
       {/* Config overlay (seed mode only, unchanged) */}
       {configOpen && (
         <>
           <div className="absolute inset-0 z-10 bg-black/40" onClick={() => setConfigOpen(false)} />
-          <div className="absolute top-0 right-0 bottom-0 w-96 z-20 bg-white border-l-2 border-neutral-200 overflow-auto p-4">
+          <div
+            className="absolute top-0 right-0 bottom-0 w-96 z-20 bg-white overflow-auto p-4"
+            style={{ borderLeft: "1px solid #e5e7eb" }}
+          >
             <div className="flex justify-between items-baseline">
-              <div className="font-black text-base">Configure this plan</div>
-              <button onClick={() => setConfigOpen(false)} className="text-xs text-neutral-500 hover:text-neutral-800">Close ✕</button>
+              <div className="font-semibold text-base">Configure this plan</div>
+              <button
+                onClick={() => setConfigOpen(false)}
+                className="text-xs text-[#9ca3af] hover:text-neutral-800"
+                style={{ borderRadius: 5 }}
+              >
+                Close ✕
+              </button>
             </div>
-            <p className="text-[11px] text-neutral-500 mt-1.5 leading-relaxed">Weight changes take effect on the next generation, never against a published plan.</p>
-            <div className="mt-3.5 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Objective weights</div>
+            <p className="text-[11px] text-[#9ca3af] mt-2 leading-relaxed">Weight changes take effect on the next generation, never against a published plan.</p>
+            <div className="mt-4 ds-label font-bold">Objective weights</div>
             {["Machine minutes","Weighted lateness","Predicted rehandles","Detention exposure"].map((k, i) => (
-              <div key={k} className="py-2 border-b border-neutral-200">
+              <div key={k} className="py-2 border-b border-[#f3f4f6]">
                 <div className="flex justify-between text-[11.5px]">
-                  <span>{k}</span><span className="font-bold tabular">{(wRaw[i]/100).toFixed(2)}</span>
+                  <span>{k}</span><span className="font-bold font-mono">{(wRaw[i]/100).toFixed(2)}</span>
                 </div>
                 <input type="range" min={0} max={40} value={wRaw[i]}
                   onChange={e => { const w=[...wRaw]; w[i]=+e.target.value; setWRaw(w) }}
-                  className="w-full mt-1.5 accent-[#d9291c]" />
+                  className="w-full mt-2 accent-[#dc2626]" />
               </div>
             ))}
-            <div className="mt-3.5 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Stability</div>
+            <div className="mt-4 ds-label font-bold">Stability</div>
             {[["Freeze window","20 min"],["In-progress immutable","true"],["Minimum improvement","8 machine-min"],["Reassign cap","2 / operator / hour"]].map(([k,v]) => (
-              <div key={k} className="flex justify-between py-1.5 border-b border-neutral-200 text-[11.5px]">
-                <span className="text-neutral-600">{k}</span><span className="font-semibold">{v}</span>
+              <div key={k} className="flex justify-between py-2 border-b border-[#f3f4f6] text-[11.5px]">
+                <span className="text-[#374151]">{k}</span><span className="font-semibold font-mono">{v}</span>
               </div>
             ))}
-            <Button className="w-full mt-4 text-xs" onClick={() => setConfigOpen(false)}>Apply on next regenerate</Button>
+            <Button
+              className="w-full mt-4 text-xs"
+              style={{ borderRadius: 5, background: "#111827", color: "#fff" }}
+              onClick={() => setConfigOpen(false)}
+            >
+              Apply on next regenerate
+            </Button>
           </div>
         </>
       )}
 
       {/* ── Header ───────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4 px-5 pt-3.5 pb-3 border-b-2 border-neutral-200 flex-none">
+      <div className="flex items-center gap-4 px-5 pt-3 pb-3 border-b border-[#e5e7eb] flex-none bg-white">
         <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2.5">
-            <span className="font-black text-[19px] tracking-tight">Night-before plan</span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-base tracking-tight">Night-before plan</span>
             {planSource === "seed" && (
               <Badge variant={published ? "brand" : "muted"}>{published ? "PUBLISHED" : "DRAFT"}</Badge>
             )}
@@ -261,46 +284,77 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
               </Badge>
             )}
           </div>
-          <div className="flex gap-3 text-[11px] text-neutral-500">
+          <div className="flex gap-3 text-[11px] text-[#9ca3af]">
             {planSource === "seed"
-              ? <><span>P-2026-08-11</span><span>Generated 22:14</span><span>Engine 41.8 s</span><span>Snapshot #a41f9c</span><span>Horizon 06:00–14:00</span></>
+              ? <>
+                  <span className="font-mono">P-2026-08-11</span>
+                  <span>Generated <span className="font-mono">22:14</span></span>
+                  <span>Engine <span className="font-mono">41.8 s</span></span>
+                  <span>Snapshot <span className="font-mono">#a41f9c</span></span>
+                  <span>Horizon <span className="font-mono">06:00–14:00</span></span>
+                </>
               : viewedPlan
-              ? <><span>Plan #{viewedPlan.id}</span><span>{viewedPlan.plan_date}</span>{viewedPlan.solve_seconds != null && <span>Solved in {viewedPlan.solve_seconds.toFixed(1)} s</span>}{viewedPlan.solver_status && <span>Solver: {viewedPlan.solver_status}</span>}{viewedPlan.gap_percent != null && <span>Gap: {viewedPlan.gap_percent.toFixed(1)}%</span>}<span>{viewedPlan.moves.length} moves</span></>
+              ? <>
+                  <span>Plan <span className="font-mono">#{viewedPlan.id}</span></span>
+                  <span className="font-mono">{viewedPlan.plan_date}</span>
+                  {viewedPlan.solve_seconds != null && <span>Solved in <span className="font-mono">{viewedPlan.solve_seconds.toFixed(1)} s</span></span>}
+                  {viewedPlan.solver_status && <span>Solver: {viewedPlan.solver_status}</span>}
+                  {viewedPlan.gap_percent != null && <span>Gap: <span className="font-mono">{viewedPlan.gap_percent.toFixed(1)}%</span></span>}
+                  <span><span className="font-mono">{viewedPlan.moves.length}</span> moves</span>
+                </>
               : <span>No plan generated</span>
             }
           </div>
         </div>
 
         {/* ── Plan source toggle ──────────────────────────────────────────── */}
-        <div className="flex items-center gap-1.5 ml-2">
-          <span className="text-[10px] tracking-widest uppercase text-neutral-500 whitespace-nowrap">Source</span>
-          {(["seed", "engine"] as PlanSource[]).map((src, i, arr) => (
-            <button
-              key={src}
-              disabled={src === "engine" && !backendConnected}
-              onClick={() => setPlanSource(src)}
-              title={src === "engine" && !backendConnected ? "Planning engine unreachable" : undefined}
-              className="text-[10.5px] px-3 py-1.5 border border-neutral-300 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{
-                borderRight: i < arr.length - 1 ? "none" : undefined,
-                background: planSource === src ? "#201e1d" : "transparent",
-                color: planSource === src ? "#fff" : "#201e1d",
-              }}
-            >
-              {src === "seed" ? "Seed data" : backendConnected ? "Planning engine" : "Engine offline"}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 ml-2">
+          <span className="ds-label whitespace-nowrap">Source</span>
+          <div style={{ border: "1px solid #e5e7eb", borderRadius: 5, overflow: "hidden", display: "flex" }}>
+            {(["seed", "engine"] as PlanSource[]).map(src => (
+              <button
+                key={src}
+                disabled={src === "engine" && !backendConnected}
+                onClick={() => setPlanSource(src)}
+                title={src === "engine" && !backendConnected ? "Planning engine unreachable" : undefined}
+                className="text-[10.5px] px-3 py-1 font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: planSource === src ? "#111827" : "transparent",
+                  color: planSource === src ? "#fff" : "#374151",
+                }}
+              >
+                {src === "seed" ? "Seed data" : backendConnected ? "Planning engine" : "Engine offline"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── Action buttons ──────────────────────────────────────────────── */}
         <div className="ml-auto flex gap-2">
           {planSource === "seed" ? (
             <>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => setConfigOpen(true)}>Configure</Button>
-              <Button variant="secondary" size="sm" className="text-xs" onClick={() => setPublished(false)}>Regenerate</Button>
-              <Button size="sm" className="text-xs" onClick={handlePublish} disabled={publishing}>
+              <button
+                className="text-xs px-3 py-1 text-[#374151] bg-white"
+                style={{ border: "1px solid #e5e7eb", borderRadius: 5 }}
+                onClick={() => setConfigOpen(true)}
+              >
+                Configure
+              </button>
+              <button
+                className="text-xs px-3 py-1 text-[#374151] bg-white"
+                style={{ border: "1px solid #e5e7eb", borderRadius: 5 }}
+                onClick={() => setPublished(false)}
+              >
+                Regenerate
+              </button>
+              <button
+                className="text-xs px-3 py-1 text-white disabled:opacity-50"
+                style={{ background: "#111827", borderRadius: 5, border: "1px solid #111827" }}
+                onClick={handlePublish}
+                disabled={publishing}
+              >
                 {publishing ? "Publishing…" : published ? "Published · view diff" : "Approve & publish"}
-              </Button>
+              </button>
             </>
           ) : (
             <>
@@ -310,7 +364,8 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                   disabled={historyLoading}
                   onChange={e => handleHistorySelect(Number(e.target.value))}
                   value={viewedPlan?.id ?? ""}
-                  className="text-[11px] border border-neutral-300 px-2 py-1.5 bg-white text-neutral-900 disabled:opacity-50"
+                  className="text-[11px] px-2 py-1 bg-white text-[#374151] disabled:opacity-50 font-mono"
+                  style={{ border: "1px solid #e5e7eb", borderRadius: 5 }}
                 >
                   <option value="" disabled>Plan history ({plans.length})</option>
                   {plans.map(p => (
@@ -320,55 +375,69 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                   ))}
                 </select>
               )}
-              <Button variant="secondary" size="sm" className="text-xs" onClick={handleGenerate} disabled={generating}>
+              <button
+                className="text-xs px-3 py-1 text-[#374151] bg-white disabled:opacity-50"
+                style={{ border: "1px solid #e5e7eb", borderRadius: 5 }}
+                onClick={handleGenerate}
+                disabled={generating}
+              >
                 {generating ? "⟳ Solver running…" : "Generate plan"}
-              </Button>
+              </button>
               {viewedPlan?.status === "draft" && (
-                <Button size="sm" className="text-xs" onClick={handleConfirm} disabled={confirming}>
+                <button
+                  className="text-xs px-3 py-1 text-white disabled:opacity-50"
+                  style={{ background: "#111827", borderRadius: 5, border: "1px solid #111827" }}
+                  onClick={handleConfirm}
+                  disabled={confirming}
+                >
                   {confirming ? "Confirming…" : "Confirm plan"}
-                </Button>
+                </button>
               )}
             </>
           )}
         </div>
       </div>
 
-      {/* ── Plan banner (seed mode only, unchanged) ───────────────────────── */}
+      {/* ── Plan banner (seed mode only) ───────────────────────────────────── */}
       {planSource === "seed" && (
-        <div className="px-5 py-2.5 bg-neutral-100 border-b border-neutral-200 text-[12.5px] leading-relaxed text-neutral-700 max-w-5xl flex-none">
+        <div className="px-5 py-2 bg-[#f9fafb] border-b border-[#e5e7eb] text-[12.5px] leading-relaxed text-[#374151] max-w-5xl flex-none">
           Plan, filter, and sequence today's {moves.length} moves across 3 reach stackers and 1 empty handler, ranked by free-time urgency, detention cost, hazmat handling, order priority, dig-out cost, gate pressure, customs channel, empty-return windows, damage state and dwell — with every placement carrying a one-sentence reason.
         </div>
       )}
 
       {/* ── Engine mode — no plan yet ─────────────────────────────────────── */}
       {planSource === "engine" && !viewedPlan && !generating && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="border border-neutral-300 bg-neutral-50 px-8 py-8 max-w-sm text-center">
-            <div className="font-black text-[17px] mb-2">No plan generated yet</div>
-            <div className="text-[12.5px] text-neutral-600 leading-relaxed mb-5">
+        <div className="flex-1 flex items-center justify-center bg-[#f4f5f7]">
+          <div className="bg-white px-8 py-8 max-w-sm text-center" style={{ border: "1px solid #e5e7eb", borderRadius: 5 }}>
+            <div className="font-semibold text-base mb-2">No plan generated yet</div>
+            <div className="text-[12.5px] text-[#374151] leading-relaxed mb-5">
               The planning engine has no plan on record. Generate one to see the solver's move sequence.
             </div>
-            <Button onClick={handleGenerate} className="text-xs">
+            <button
+              className="text-xs px-4 py-2 text-white"
+              style={{ background: "#111827", borderRadius: 5, border: "1px solid #111827" }}
+              onClick={handleGenerate}
+            >
               Generate plan (CP-SAT)
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
       {/* ── Engine mode — solver running spinner ──────────────────────────── */}
       {planSource === "engine" && generating && (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center bg-[#f4f5f7]">
           <div className="text-center">
             <div className="text-[28px] mb-3 animate-spin select-none">⟳</div>
-            <div className="font-black text-[17px]">Solver running…</div>
-            <div className="text-[12px] text-neutral-500 mt-1">CP-SAT optimising the move sequence</div>
+            <div className="font-semibold text-base">Solver running…</div>
+            <div className="text-[12px] text-[#9ca3af] mt-1">CP-SAT optimising the move sequence</div>
           </div>
         </div>
       )}
 
-      {/* ── Metrics row ───────────────────────────────────────────────────── */}
+      {/* ── Metrics / KPI row ──────────────────────────────────────────────── */}
       {(planSource === "seed" || (planSource === "engine" && viewedPlan && !generating)) && (
-        <div className="flex flex-wrap border-b-2 border-neutral-200 flex-none bg-white">
+        <div className="flex flex-wrap border-b border-[#e5e7eb] flex-none bg-white">
           {planSource === "seed"
             ? [
                 { k:"Moves planned", v:String(moves.length), sub:"of 284 today" },
@@ -378,11 +447,14 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 { k:"Detention at risk", v:"$8.4k", sub:"next 72 h", red:true },
                 { k:"Exceptions", v:String(exceptions.length), sub:"unresolved", red:true },
               ].map(m => (
-                <div key={m.k} className="flex-1 basis-36 px-5 py-2.5 border-r border-neutral-200 flex flex-col gap-0.5">
-                  <span className="text-[10px] tracking-widest uppercase text-neutral-500">{m.k}</span>
+                <div key={m.k} className="flex-1 basis-36 px-5 py-2 border-r border-[#e5e7eb] flex flex-col gap-1">
+                  <span className="ds-label">{m.k}</span>
                   <div className="flex items-baseline gap-2">
-                    <span className={`font-black text-[22px] leading-none tracking-tight ${m.red?"text-[#d9291c]":""}`}>{m.v}</span>
-                    <span className="text-[11px] text-neutral-500">{m.sub}</span>
+                    <span
+                      className="font-mono font-semibold leading-none"
+                      style={{ fontSize: 26, color: m.red ? "#dc2626" : undefined }}
+                    >{m.v}</span>
+                    <span className="text-[11px] text-[#9ca3af]">{m.sub}</span>
                   </div>
                 </div>
               ))
@@ -395,11 +467,14 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 { k:"Gap", v:viewedPlan.gap_percent != null ? viewedPlan.gap_percent.toFixed(1)+"%" : "—", sub:"optimality" },
                 { k:"Status", v:viewedPlan.status.replace("_"," "), sub:"plan state" },
               ].map(m => (
-                <div key={m.k} className="flex-1 basis-36 px-5 py-2.5 border-r border-neutral-200 flex flex-col gap-0.5">
-                  <span className="text-[10px] tracking-widest uppercase text-neutral-500">{m.k}</span>
+                <div key={m.k} className="flex-1 basis-36 px-5 py-2 border-r border-[#e5e7eb] flex flex-col gap-1">
+                  <span className="ds-label">{m.k}</span>
                   <div className="flex items-baseline gap-2">
-                    <span className="font-black text-[22px] leading-none tracking-tight capitalize">{m.v}</span>
-                    <span className="text-[11px] text-neutral-500">{m.sub}</span>
+                    <span
+                      className="font-mono font-semibold leading-none capitalize"
+                      style={{ fontSize: 26 }}
+                    >{m.v}</span>
+                    <span className="text-[11px] text-[#9ca3af]">{m.sub}</span>
                   </div>
                 </div>
               ))
@@ -409,62 +484,78 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
       )}
 
       {/* ════════════════════════════════════════════════════════════════════
-          SEED MODE — original 3-column layout, completely unchanged
+          SEED MODE — original 3-column layout
           ════════════════════════════════════════════════════════════════════ */}
       {planSource === "seed" && (
         <div className="grid flex-1 min-h-0 overflow-auto" style={{ gridTemplateColumns: "clamp(170px,15vw,220px) minmax(340px,1fr) clamp(250px,24vw,340px)" }}>
 
           {/* Left: assumptions + weights */}
-          <div className="border-r-2 border-neutral-200 flex flex-col min-h-0 overflow-auto">
-            <div className="px-4 pt-3 pb-2 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Assumptions</div>
+          <div className="bg-white flex flex-col min-h-0 overflow-auto" style={{ borderRight: "1px solid #e5e7eb" }}>
+            <div className="px-4 pt-3 pb-2 ds-label font-bold">Assumptions</div>
             {assumptions.map(a => (
-              <div key={a.k} className="px-4 pb-2.5">
+              <div key={a.k} className="px-4 pb-2">
                 <div className="text-[12px] font-semibold leading-tight">{a.v}</div>
-                <div className="text-[10.5px] text-neutral-500 leading-tight">
-                  {a.k} · <span className={/unanswered|unconfirmed|maintenance/.test(a.note)?"text-[#d9291c]":"text-neutral-500"}>{a.note}</span>
+                <div className="text-[10.5px] text-[#9ca3af] leading-tight">
+                  {a.k} · <span className={/unanswered|unconfirmed|maintenance/.test(a.note)?"text-[#dc2626]":"text-[#9ca3af]"}>{a.note}</span>
                 </div>
               </div>
             ))}
-            <div className="h-0.5 bg-neutral-200 my-0.5" />
-            <div className="px-4 pt-3 pb-2 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Objective weights</div>
+            <div className="h-px bg-[#e5e7eb] my-1" />
+            <div className="px-4 pt-3 pb-2 ds-label font-bold">Objective weights</div>
             {WEIGHTS.map(w => (
-              <div key={w.k} className="px-4 pb-2.5 flex flex-col gap-1">
-                <div className="flex justify-between text-[11.5px]"><span>{w.k}</span><span className="font-bold tabular">{w.v}</span></div>
-                <div className="h-0.5 bg-neutral-200 relative">
-                  <div className="absolute left-0 top-0 h-0.5 bg-neutral-900" style={{ width: w.pct+"%" }} />
+              <div key={w.k} className="px-4 pb-2 flex flex-col gap-1">
+                <div className="flex justify-between text-[11.5px]">
+                  <span>{w.k}</span>
+                  <span className="font-bold font-mono">{w.v}</span>
+                </div>
+                <div className="h-px bg-[#e5e7eb] relative">
+                  <div className="absolute left-0 top-0 h-px bg-[#111827]" style={{ width: w.pct+"%" }} />
                 </div>
               </div>
             ))}
           </div>
 
           {/* Center: moves table */}
-          <div className="flex flex-col min-h-0">
-            <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-neutral-200 flex-none">
+          <div className="flex flex-col min-h-0 bg-white">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#e5e7eb] flex-none">
               <Input
                 placeholder="Filter container, slot, operator…"
                 value={q}
                 onChange={e => setQ(e.target.value)}
                 className="w-56 h-7 text-xs"
               />
-              <div className="flex">
-                {types.map((t, i) => (
+              {/* Filter pills — single container */}
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 5, overflow: "hidden", display: "flex" }}>
+                {types.map(t => (
                   <button key={t}
                     onClick={() => setFilter(t)}
-                    className="text-[10.5px] px-2.5 py-1.5 border border-neutral-300 font-semibold transition-colors"
-                    style={{ borderRight: i < types.length-1 ? "none" : undefined, background: filter===t?"#201e1d":"transparent", color: filter===t?"#fff":"#333" }}
+                    className="text-[10.5px] px-2 py-1 font-semibold transition-colors"
+                    style={{
+                      background: filter === t ? "#111827" : "transparent",
+                      color: filter === t ? "#fff" : "#374151",
+                    }}
                   >
-                    {t==="ALL"?"All":TYPE_LABEL[t]}
+                    {t === "ALL" ? "All" : TYPE_LABEL[t]}
                   </button>
                 ))}
               </div>
-              <span className="ml-auto text-[11px] text-neutral-500">{rows.length} of {moves.length} moves · 12 frozen</span>
+              <span className="ml-auto text-[11px] text-[#9ca3af]">
+                <span className="font-mono">{rows.length}</span> of <span className="font-mono">{moves.length}</span> moves · <span className="font-mono">12</span> frozen
+              </span>
             </div>
             <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full border-collapse text-[12px]">
                 <thead>
                   <tr>
                     {["SEQ","WINDOW","MOVE","ROUTE","ASSIGNED","EST"].map((h,i) => (
-                      <th key={h} className="text-left px-2.5 py-2 text-[9.5px] font-bold tracking-widest uppercase text-neutral-500 sticky top-0 bg-white border-b-2 border-neutral-200 z-10" style={{ paddingLeft: i===0?"16px":undefined, textAlign: i===5?"right":undefined }}>
+                      <th
+                        key={h}
+                        className="ds-th text-left sticky top-0 z-10"
+                        style={{
+                          paddingLeft: i === 0 ? 16 : undefined,
+                          textAlign: i === 5 ? "right" : undefined,
+                        }}
+                      >
                         {h}
                       </th>
                     ))}
@@ -472,7 +563,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 </thead>
                 <tbody>
                   {rows.length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-4 text-[12px] text-neutral-500">No moves match {q ? `"${q}"` : "this filter"}.</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-4 text-[12px] text-[#9ca3af]">No moves match {q ? `"${q}"` : "this filter"}.</td></tr>
                   ) : rows.map(m => (
                     <MoveRow
                       key={m.id}
@@ -486,8 +577,8 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
             </div>
           </div>
 
-          {/* Right: detail panel */}
-          <div className="border-l-2 border-neutral-200 flex flex-col min-h-0">
+          {/* Right: detail side panel */}
+          <div className="bg-white flex flex-col min-h-0" style={{ borderLeft: "1px solid #e5e7eb" }}>
             <Tabs value={tab} onValueChange={setTab} className="flex flex-col flex-1 min-h-0">
               <TabsList className="flex-none">
                 <TabsTrigger value="detail">Move</TabsTrigger>
@@ -498,14 +589,15 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
               <TabsContent value="detail">
                 {selMove ? (
                   <div>
-                    <div className="px-4 pt-3.5 pb-3">
-                      <div className="text-[10px] tracking-widest uppercase text-neutral-500">{selMove.id} · seq {selMove.seq}</div>
-                      <div className="font-black text-[17px] mt-1 tracking-tight">{TYPE_LABEL[selMove.type]}</div>
-                      <div className="text-[12px] mt-1 tabular text-neutral-700">{selMove.containerId}</div>
-                      <div className="text-[12px] tabular text-neutral-600">{selMove.from} → {selMove.to}</div>
+                    <div className="px-4 pt-3 pb-3">
+                      <div className="ds-label"><span className="font-mono">{selMove.id}</span> · seq <span className="font-mono">{selMove.seq}</span></div>
+                      <div className="font-semibold text-base mt-1 tracking-tight">{TYPE_LABEL[selMove.type]}</div>
+                      <div className="text-[12px] mt-1 font-mono text-[#374151]">{selMove.containerId}</div>
+                      <div className="text-[12px] font-mono text-[#9ca3af]">{selMove.from} → {selMove.to}</div>
                     </div>
-                    <div className="px-4 py-3 border-t-2 border-b border-neutral-200 bg-red-50">
-                      <div className="text-[10px] tracking-widest uppercase text-[#a01f14] mb-1">Why this move</div>
+                    {/* WHY THIS MOVE callout */}
+                    <div className="ds-callout mx-4 mb-3">
+                      <div className="ds-callout-label">Why this move</div>
                       <div className="text-[12.5px] leading-relaxed">{selMove.reason}</div>
                     </div>
                     {[
@@ -516,12 +608,12 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                       ["State", selMove.frozen?selMove.state.toLowerCase()+" · frozen":selMove.state.toLowerCase()],
                       ["Weight snapshot", "WS-2026-08-10#a41f9c"],
                     ].map(([k,v]) => (
-                      <div key={k} className="flex justify-between gap-3 px-4 py-2 border-b border-neutral-200 text-[11.5px]">
-                        <span className="text-neutral-500">{k}</span>
-                        <span className="font-semibold text-right">{v}</span>
+                      <div key={k} className="flex justify-between gap-3 px-4 py-2 border-b border-[#f3f4f6] text-[11.5px]">
+                        <span className="text-[#9ca3af]">{k}</span>
+                        <span className="font-semibold font-mono text-right">{v}</span>
                       </div>
                     ))}
-                    <div className="px-4 pt-3 pb-1.5 text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Hard constraints</div>
+                    <div className="px-4 pt-3 pb-1 ds-label font-bold">Hard constraints</div>
                     {[
                       ["C2","Stack height within zone max and reach envelope","PASS"],
                       ["C3","Row depth within machine reach","PASS"],
@@ -529,15 +621,15 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                       ["C9","Operator certified for cargo class","PASS"],
                       ["C12","Destination zone below utilisation ceiling",selMove.to[0]==="C"?"AT CEILING":"PASS"],
                     ].map(([id,label,verdict]) => (
-                      <div key={id} className="flex gap-2.5 items-baseline px-4 py-1.5 text-[11.5px]">
-                        <span className="w-6 font-bold text-neutral-500">{id}</span>
-                        <span className="flex-1 text-neutral-700 leading-tight">{label}</span>
-                        <span className={`text-[10px] font-bold tracking-wider ${verdict==="AT CEILING"?"text-[#d9291c]":"text-neutral-500"}`}>{verdict}</span>
+                      <div key={id} className="flex gap-2 items-baseline px-4 py-1 text-[11.5px]">
+                        <span className="w-6 font-bold font-mono text-[#9ca3af]">{id}</span>
+                        <span className="flex-1 text-[#374151] leading-tight">{label}</span>
+                        <span className={`text-[10px] font-bold tracking-wider ${verdict==="AT CEILING"?"text-[#dc2626]":"text-[#9ca3af]"}`}>{verdict}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="px-4 py-3.5 text-[12.5px] leading-relaxed text-neutral-600">
+                  <div className="px-4 py-4 text-[12.5px] leading-relaxed text-[#374151]">
                     {focus || q || "This container"} has no move in plan P-2026-08-11 — {moves.length} of 897 containers are moved today.
                   </div>
                 )}
@@ -546,36 +638,41 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
               <TabsContent value="exceptions">
                 <div>
                   {exceptions.map(e => (
-                    <div key={e.id} className="px-4 py-3.5 border-b border-neutral-200">
+                    <div key={e.id} className="px-4 py-3 border-b border-[#f3f4f6]">
                       <div className="flex justify-between items-baseline">
-                        <span className={`text-[10px] font-bold tracking-wider ${e.severity==="high"?"text-[#d9291c]":"text-neutral-500"}`}>{e.type}</span>
-                        <span className="text-[10px] text-neutral-500">{e.id}</span>
+                        <span className={`text-[10px] font-bold tracking-wider ${e.severity==="high"?"text-[#dc2626]":"text-[#9ca3af]"}`}>{e.type}</span>
+                        <span className="text-[10px] font-mono text-[#9ca3af]">{e.id}</span>
                       </div>
                       <div className="text-[13px] font-bold mt-1">{e.subject}</div>
-                      <div className="text-[12px] leading-relaxed text-neutral-700 mt-1">{e.detail}</div>
-                      <Button variant="secondary" size="sm" className="mt-2.5 text-[11.5px]">{e.action}</Button>
+                      <div className="text-[12px] leading-relaxed text-[#374151] mt-1">{e.detail}</div>
+                      <button
+                        className="mt-2 text-[11.5px] px-3 py-1 text-[#374151] bg-white"
+                        style={{ border: "1px solid #e5e7eb", borderRadius: 5 }}
+                      >
+                        {e.action}
+                      </button>
                     </div>
                   ))}
-                  <div className="px-4 py-3.5 text-[11.5px] text-neutral-600 leading-relaxed">Infeasible assignments escalate after three resequencing iterations.</div>
+                  <div className="px-4 py-3 text-[11.5px] text-[#374151] leading-relaxed">Infeasible assignments escalate after three resequencing iterations.</div>
                 </div>
               </TabsContent>
 
               <TabsContent value="projection">
                 <div>
                   {projection.map(p => (
-                    <div key={p.k} className="px-4 py-3 border-b border-neutral-200">
+                    <div key={p.k} className="px-4 py-3 border-b border-[#f3f4f6]">
                       <div className="flex justify-between text-[11.5px]">
                         <span className="font-bold">{p.k}</span>
-                        <span className="text-neutral-500">target {p.target}</span>
+                        <span className="text-[#9ca3af]">target <span className="font-mono">{p.target}</span></span>
                       </div>
-                      <div className="flex items-baseline gap-3 mt-1.5 text-[11px] tabular text-neutral-500">
-                        <span>{p.opt}</span>
-                        <span className="font-black text-[17px] leading-none text-neutral-900">{p.exp}</span>
-                        <span>{p.pes}</span>
+                      <div className="flex items-baseline gap-3 mt-1 text-[11px] text-[#9ca3af]">
+                        <span className="font-mono">{p.opt}</span>
+                        <span className="font-mono font-semibold leading-none text-neutral-900" style={{ fontSize: 26 }}>{p.exp}</span>
+                        <span className="font-mono">{p.pes}</span>
                       </div>
-                      <div className="relative h-1 bg-neutral-200 mt-2">
-                        <div className="absolute top-0 h-1 bg-red-200" style={{ left:p.bandLeft+"%", width:p.bandWidth+"%" }} />
-                        <div className="absolute top-[-3px] h-2.5 w-0.5 bg-neutral-900" style={{ left:p.mark+"%" }} />
+                      <div className="relative h-1 bg-[#f3f4f6] mt-2">
+                        <div className="absolute top-0 h-1" style={{ left:p.bandLeft+"%", width:p.bandWidth+"%", background: "#fca5a5" }} />
+                        <div className="absolute top-[-3px] h-2 w-px bg-neutral-900" style={{ left:p.mark+"%" }} />
                       </div>
                     </div>
                   ))}
@@ -594,16 +691,25 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
         <div className="grid flex-1 min-h-0 overflow-auto" style={{ gridTemplateColumns: "minmax(400px,1fr) clamp(280px,28vw,380px)" }}>
 
           {/* Center: engine move table */}
-          <div className="flex flex-col min-h-0">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-neutral-200 flex-none">
-              <span className="text-[11px] text-neutral-500">{engineMoves.length} moves · Plan #{viewedPlan.id}</span>
+          <div className="flex flex-col min-h-0 bg-white">
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e5e7eb] flex-none">
+              <span className="text-[11px] text-[#9ca3af]">
+                <span className="font-mono">{engineMoves.length}</span> moves · Plan <span className="font-mono">#{viewedPlan.id}</span>
+              </span>
             </div>
             <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full border-collapse text-[12px]">
                 <thead>
                   <tr>
                     {["SEQ","WINDOW","MOVE","ROUTE","ASSIGNED","EST"].map((h,i) => (
-                      <th key={h} className="text-left px-2.5 py-2 text-[9.5px] font-bold tracking-widest uppercase text-neutral-500 sticky top-0 bg-white border-b-2 border-neutral-200 z-10" style={{ paddingLeft: i===0?"16px":undefined, textAlign: i===5?"right":undefined }}>
+                      <th
+                        key={h}
+                        className="ds-th text-left sticky top-0 z-10"
+                        style={{
+                          paddingLeft: i === 0 ? 16 : undefined,
+                          textAlign: i === 5 ? "right" : undefined,
+                        }}
+                      >
                         {h}
                       </th>
                     ))}
@@ -611,7 +717,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 </thead>
                 <tbody>
                   {engineMoves.length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-4 text-[12px] text-neutral-500">No moves in this plan.</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-4 text-[12px] text-[#9ca3af]">No moves in this plan.</td></tr>
                   ) : engineMoves.map(m => (
                     <MoveRow
                       key={m.id}
@@ -625,32 +731,41 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
             </div>
           </div>
 
-          {/* Right: engine move detail */}
-          <div className="border-l-2 border-neutral-200 flex flex-col min-h-0 overflow-auto">
+          {/* Right: engine move detail side panel */}
+          <div className="bg-white flex flex-col min-h-0 overflow-auto" style={{ borderLeft: "1px solid #e5e7eb", width: 300 }}>
             {engineSelMove ? (
               <div>
-                <div className="px-4 pt-3.5 pb-3">
-                  <div className="text-[10px] tracking-widest uppercase text-neutral-500">Move #{engineSelMove.id} · seq {engineSelMove.seq}</div>
-                  <div className="font-black text-[17px] mt-1 tracking-tight">
+                <div className="px-4 pt-3 pb-3">
+                  <div className="ds-label">Move <span className="font-mono">#{engineSelMove.id}</span> · seq <span className="font-mono">{engineSelMove.seq}</span></div>
+                  <div className="font-semibold text-base mt-1 tracking-tight">
                     {REASON_LABELS[(engineSelMove as {reason?: string}).reason ?? ""] ?? (engineSelMove as {typeLabel?: string}).typeLabel ?? "Move"}
                   </div>
-                  <div className="text-[12px] mt-1 tabular text-neutral-700">{engineSelMove.containerId}</div>
-                  <div className="text-[12px] tabular text-neutral-600">{engineSelMove.from} → {engineSelMove.to}</div>
+                  <div className="text-[12px] mt-1 font-mono text-[#374151]">{engineSelMove.containerId}</div>
+                  <div className="text-[12px] font-mono text-[#9ca3af]">{engineSelMove.from} → {engineSelMove.to}</div>
                 </div>
+                {/* WHY THIS MOVE callout for engine mode */}
+                {(engineSelMove as {reason?: string}).reason && (
+                  <div className="ds-callout mx-4 mb-3">
+                    <div className="ds-callout-label">Why this move</div>
+                    <div className="text-[12.5px] leading-relaxed">
+                      {REASON_LABELS[(engineSelMove as {reason?: string}).reason ?? ""] ?? (engineSelMove as {reason?: string}).reason}
+                    </div>
+                  </div>
+                )}
                 {[
                   ["Jockey / operator", engineSelMove.operatorName],
                   ["Est. duration", engineSelMove.estMin.toFixed(1)+"′"],
                   ["State", (engineSelMove as {stateLabel?: string}).stateLabel ?? "—"],
                   ["Frozen", engineSelMove.frozen ? "yes" : "no"],
                 ].map(([k,v]) => (
-                  <div key={k} className="flex justify-between gap-3 px-4 py-2 border-b border-neutral-200 text-[11.5px]">
-                    <span className="text-neutral-500">{k}</span>
-                    <span className="font-semibold text-right">{v}</span>
+                  <div key={k} className="flex justify-between gap-3 px-4 py-2 border-b border-[#f3f4f6] text-[11.5px]">
+                    <span className="text-[#9ca3af]">{k}</span>
+                    <span className="font-semibold font-mono text-right">{v}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="px-4 py-4 text-[12px] text-neutral-500 leading-relaxed">
+              <div className="px-4 py-4 text-[12px] text-[#9ca3af] leading-relaxed">
                 Select a move from the table to see its details.
               </div>
             )}
@@ -658,34 +773,38 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
         </div>
       )}
 
-      {/* ── Gantt strip (seed mode only, unchanged) ───────────────────────── */}
+      {/* ── Operator schedule / timeline (seed mode only) ─────────────────── */}
       {planSource === "seed" && (
-        <div className="flex-none border-t-2 border-neutral-200 max-h-44 overflow-auto">
+        <div className="flex-none border-t border-[#e5e7eb] max-h-44 overflow-auto bg-white">
           <div className="flex items-baseline gap-3 px-4 py-2">
-            <span className="text-[10px] tracking-widest uppercase text-neutral-500 font-bold">Operator schedule</span>
-            <span className="text-[11px] text-neutral-500">{published?"Frozen window 20 min · in-progress moves immutable":"Preview — freeze applies at publication"}</span>
+            <span className="ds-label font-bold">Operator schedule</span>
+            <span className="text-[11px] text-[#9ca3af]">
+              {published ? "Frozen window 20 min · in-progress moves immutable" : "Preview — freeze applies at publication"}
+            </span>
           </div>
           <div className="grid" style={{ gridTemplateColumns: "132px 1fr" }}>
             <div />
-            <div className="flex border-b border-neutral-200">
-              {HOURS.map(h => <div key={h} className="flex-1 text-[9.5px] text-neutral-500 border-l border-neutral-200 px-1 py-0.5">{h}</div>)}
+            <div className="flex border-b border-[#e5e7eb]">
+              {HOURS.map(h => (
+                <div key={h} className="flex-1 font-mono text-[9px] text-[#9ca3af] border-l border-[#e5e7eb] px-1 py-1">{h}</div>
+              ))}
             </div>
             {onShift.map(op => (
               <div key={op.id} className="contents">
-                <div className="px-4 py-1.5 text-[11.5px] border-b border-neutral-200 flex justify-between gap-2">
+                <div className="px-4 py-1 text-[11.5px] border-b border-[#e5e7eb] flex justify-between gap-2">
                   <span className="font-semibold">{op.name}</span>
-                  <span className="text-neutral-500">{op.equipment}</span>
+                  <span className="text-[#9ca3af]">{op.equipment}</span>
                 </div>
-                <div className="relative h-8 border-b border-neutral-200 border-l border-neutral-200">
+                <div className="relative h-8 border-b border-[#e5e7eb] border-l border-[#e5e7eb]">
                   {moves.filter(m => m.operator === op.id).map(m => (
                     <div key={m.id}
                       onClick={() => { setSel(m.id); setTab("detail") }}
                       title={m.id+" "+TYPE_LABEL[m.type]+" "+m.start+"–"+m.end}
-                      className="absolute top-2 h-3.5 cursor-pointer hover:opacity-80"
+                      className="absolute top-2 h-3 cursor-pointer hover:opacity-80"
                       style={{
                         left: ((m.startMin-360)/480*100).toFixed(2)+"%",
                         width: Math.max(0.5,(m.endMin-m.startMin)/480*100).toFixed(2)+"%",
-                        background: m.id===sel?"#d9291c":m.frozen?"#888":"#201e1d",
+                        background: m.id===sel?"#dc2626":m.frozen?"#9ca3af":"#111827",
                       }}
                     />
                   ))}
