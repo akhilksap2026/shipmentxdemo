@@ -1,0 +1,66 @@
+You are auditing a yard-management SaaS codebase before making changes. Do NOT modify any file. Only read and report.
+
+STEP 1 — Discover the project structure.
+Run: find . -type f -name "*.py" -o -name "*.ts" -o -name "*.tsx" | grep -v node_modules | grep -v __pycache__ | grep -v .next | sort
+Report the top-level folders and their purpose in 1 line each.
+
+STEP 2 — Check which backend the frontend talks to.
+Read frontend/lib/api.ts. Answer these questions:
+  a) What is API_BASE set to?
+  b) Do the types use integer IDs (number) or UUID strings (string)?
+  c) Does the `api` object call paths like /api/yard or /api/v1/dispatcher?
+  d) Is there a type called "Move" or "ActivityLegView"?
+  e) Is there a type called "YardSlot" (flat) or "YardStateResponse" (nested hierarchy)?
+
+STEP 3 — Check backend-poc engine completeness.
+Read these files and for each, answer YES or NO to the question:
+  a) backend-poc/src/models/transactional.py → Does the Activity class have a field called `reason_text`?
+  b) backend-poc/src/models/transactional.py → Does the Activity class have a field called `frozen`?
+  c) backend-poc/src/models/master_data.py → Does the Container class have a field called `iso_id`?
+  d) backend-poc/src/models/spatial.py → Is there a function called `display_address`?
+  e) backend-poc/src/workers/planning_tasks.py → In _place_inbound_containers, is a reason_text string being set on Activity objects?
+  f) backend-poc/src/workers/planning_tasks.py → In _run_event_replan, is there a debounce check (checking if a previous run completed within 90 seconds)?
+  g) backend-poc/src/workers/planning_tasks.py → In _run_nightly_batch, are outbound retrieval activities created for containers near LFD?
+
+STEP 4 — Check backend-poc API endpoints.
+Read backend-poc/src/main.py to see which routers are registered. Then check:
+  a) Is there a file backend-poc/src/api/v1/yard_state.py with a GET /api/v1/yard-state endpoint?
+  b) Is there a file backend-poc/src/api/v1/containers.py with a GET /api/v1/containers endpoint?
+  c) In backend-poc/src/api/v1/dispatcher.py → Is there a GET endpoint for /planning-run/{run_id} that returns activities with legs?
+  d) In backend-poc/src/api/v1/dispatcher.py → Is there a GET /events endpoint?
+
+STEP 5 — Check frontend page wiring.
+For each file, note what api.X() calls it makes:
+  a) frontend/app/page.tsx (dashboard)
+  b) frontend/app/yard/page.tsx
+  c) frontend/app/jockey/page.tsx
+  d) frontend/app/disruptions/page.tsx
+  e) frontend/app/plans/page.tsx and frontend/app/plans/[id]/page.tsx
+
+STEP 6 — Produce the status checklist.
+Output a markdown table with this format:
+
+| # | Item | Status | File(s) affected |
+|---|------|--------|-------------------|
+| 1.1 | Activity.reason_text field | ✅ DONE / ❌ MISSING | transactional.py |
+| 1.2 | Activity.frozen field | ✅ DONE / ❌ MISSING | transactional.py |
+| 1.3 | Container.iso_id field | ✅ DONE / ❌ MISSING | master_data.py |
+| 1.4 | display_address() helper | ✅ DONE / ❌ MISSING | spatial.py |
+| 2.1 | GET /api/v1/yard-state endpoint | ✅ DONE / ❌ MISSING | yard_state.py |
+| 2.2 | GET /api/v1/containers endpoint | ✅ DONE / ❌ MISSING | containers.py |
+| 2.3 | GET /planning-run/{id} with activities | ✅ DONE / ❌ MISSING | dispatcher.py |
+| 2.4 | GET /events endpoint | ✅ DONE / ❌ MISSING | dispatcher.py |
+| 3.1 | Frontend types use UUID strings | ✅ DONE / ❌ MISSING | api.ts |
+| 3.2 | Frontend api object calls /api/v1/ paths | ✅ DONE / ❌ MISSING | api.ts |
+| 4.1 | Dashboard uses api.summary() | ✅ DONE / ❌ MISSING | page.tsx |
+| 4.2 | Yard map uses api.yardState() | ✅ DONE / ❌ MISSING | yard/page.tsx |
+| 4.3 | Jockey uses api.nextTask() | ✅ DONE / ❌ MISSING | jockey/page.tsx |
+| 4.4 | Disruptions uses api.events() | ✅ DONE / ❌ MISSING | disruptions/page.tsx |
+| 5.1 | Placement reason strings computed | ✅ DONE / ❌ MISSING | planning_tasks.py |
+| 5.2 | Replan debounce guard | ✅ DONE / ❌ MISSING | planning_tasks.py |
+| 5.3 | Frozen flag persisted on in-progress | ✅ DONE / ❌ MISSING | planning_tasks.py |
+| 5.4 | Outbound retrieval selection | ✅ DONE / ❌ MISSING | planning_tasks.py |
+
+At the end, state: "Next prompt to run: [the lowest-numbered ❌ MISSING item]"
+
+Do NOT modify any file. This is a read-only audit.
