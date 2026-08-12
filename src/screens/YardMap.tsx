@@ -3,13 +3,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useData } from "@/lib/DataContext"
 import type { Container } from "@/data/yard-data"
+import { OPERATORS } from "@/data/yard-data"
 import { backendApi } from "@/lib/backend-api"
 import type { BackendContainerDetail, BackendForecast } from "@/lib/backend-api"
 import PhysicalYardMap from "@/components/yard/PhysicalYardMap"
 import BlockInteriorView from "@/components/yard/BlockInteriorView"
 import SlotStackView from "@/components/yard/SlotStackView"
 import type { ViewContainer } from "@/components/yard/types"
-import { computeBlockLayouts, computeLiveBlockLayouts } from "@/lib/yard-layout"
+import {
+  computeBlockLayouts, computeLiveBlockLayouts,
+  computeEquipmentPositions, computeMoveTrails,
+} from "@/lib/yard-layout"
 import { containerColor as _containerColor, LEGENDS } from "@/lib/yard-color"
 import type { ColorMode } from "@/lib/yard-color"
 
@@ -49,6 +53,14 @@ export default function YardMap({ focus, onNavigate }: Props) {
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>("yard")
   const [selectedSlot, setSelectedSlot] = useState<{ col: number; row: number } | null>(null)
 
+  // ── Part 3 overlay / planner state ───────────────────────────────────────
+  const [showEquipment,  setShowEquipment]  = useState(false)
+  const [showTrails,     setShowTrails]     = useState(false)
+  const [showCongestion, setShowCongestion] = useState(false)
+  const [plannerMode,    setPlannerMode]    = useState(false)
+  const [plannerToast,   setPlannerToast]   = useState<string | null>(null)
+  const [scrubberMin,    setScrubberMin]    = useState<number | null>(null)
+
   // ── New live-yard state ───────────────────────────────────────────────────
   const [dataSource,   setDataSource]   = useState<DataSource>("seed")
   const [liveBlock,    setLiveBlock]    = useState<string | null>(null)
@@ -58,6 +70,35 @@ export default function YardMap({ focus, onNavigate }: Props) {
   const [loadingDetail,setLoadingDetail]= useState(false)
   const [forecast,     setForecast]     = useState<BackendForecast | null>(null)
   const [loadingFcast, setLoadingFcast] = useState(false)
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.("input,textarea,select")) return
+      if (view !== "map") return
+      switch (e.key) {
+        case "Escape":
+          if (zoomLevel === "slot") setZoomLevel("block")
+          else if (zoomLevel === "block") { setZoomLevel("yard"); setSelectedSlot(null) }
+          break
+        case "1": setZoomLevel("yard"); setSelectedSlot(null); break
+        case "2": if (selectedBlockLabel || activeLiveBlock) setZoomLevel("block"); break
+        case "3": if (selectedSlot) setZoomLevel("slot"); break
+        case "e": case "E": setShowEquipment(v => !v); break
+        case "t": case "T": setShowTrails(v => !v); break
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, zoomLevel, selectedBlockLabel, selectedSlot])
+
+  // ── Auto-clear planner toast ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!plannerToast) return
+    const t = setTimeout(() => setPlannerToast(null), 3500)
+    return () => clearTimeout(t)
+  }, [plannerToast])
 
   // ── Existing effects (unchanged) ──────────────────────────────────────────
   useEffect(() => {
@@ -257,6 +298,58 @@ export default function YardMap({ focus, onNavigate }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ql, containers])
 
+  // ── Part 3 computed overlays ───────────────────────────────────────────────
+  const equipmentPositions = useMemo(
+    () => computeEquipmentPositions(OPERATORS, moves, blockLayouts),
+    [moves, blockLayouts],
+  )
+
+  const moveTrails = useMemo(
+    () => computeMoveTrails(moves, blockLayouts),
+    [moves, blockLayouts],
+  )
+
+  const congestionByBlock = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const layout of blockLayouts) {
+      const active = moves.filter(m =>
+        (m.state === "IN_PROGRESS" || m.state === "ASSIGNED") &&
+        (m.from.startsWith(layout.label) || m.to.startsWith(layout.label))
+      ).length
+      const eq = equipmentPositions.filter(e => e.currentBlock === layout.label).length
+      map.set(layout.label, Math.min(1, (active + eq) / 4))
+    }
+    return map
+  }, [blockLayouts, moves, equipmentPositions])
+
+  // Blocks with active moves at the selected scrubber time
+  const activeMoveBlocks = useMemo(() => {
+    if (scrubberMin === null) return new Set<string>()
+    const active = moves.filter(m => m.startMin <= scrubberMin && m.endMin >= scrubberMin)
+    return new Set(
+      active.flatMap(m => {
+        const from = m.from.match(/^([A-Z]-\d+)/)?.[1]
+        const to   = m.to.match(/^([A-Z]-\d+)/)?.[1]
+        return [from, to].filter(Boolean) as string[]
+      }),
+    )
+  }, [moves, scrubberMin])
+
+  // Planner: find zone block with lowest occupancy
+  function lowestOccupancyInZone(zone: string): string {
+    const zoneLayouts = blockLayouts.filter(l => l.zone === zone)
+    if (!zoneLayouts.length) return "S-01"
+    return zoneLayouts.sort((a, b) => a.occupancyPct - b.occupancyPct)[0].label
+  }
+
+  function handlePlannerAction(action: string, containerId: string) {
+    const c = containers.find(x => x.id === containerId)
+    const zone = c?.zone ?? "A"
+    const dest = action === "reposition" ? lowestOccupancyInZone(zone) : "S-01"
+    const verb = action === "retrieval" ? "Retrieval planned" : action === "reposition" ? "Reposition planned" : "Outbound staging planned"
+    setPlannerToast(`${verb}: ${containerId} → ${dest}`)
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   const isLive = dataSource === "live"
 
@@ -316,6 +409,32 @@ export default function YardMap({ focus, onNavigate }: Props) {
                 className="text-[10px] px-2 py-1.5 border border-neutral-300 font-semibold capitalize transition-colors"
                 style={{ borderRight:i<arr.length-1?"none":undefined, background:mode===k?"#201e1d":"transparent", color:mode===k?"#fff":"#333" }}>
                 {k}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Part 3 — overlay + planner toggles (map mode only) */}
+        {view==="map" && (
+          <div className="flex items-center gap-px">
+            {([
+              { key: "equip",  label: "Equipment",  k: "E", on: showEquipment,  set: setShowEquipment  },
+              { key: "trails", label: "Trails",     k: "T", on: showTrails,     set: setShowTrails     },
+              { key: "heat",   label: "Heat",       k: "",  on: showCongestion, set: setShowCongestion },
+              { key: "plan",   label: "Planner",    k: "",  on: plannerMode,    set: setPlannerMode    },
+            ] as { key: string; label: string; k: string; on: boolean; set: (v: boolean) => void }[]).map((t, i, arr) => (
+              <button
+                key={t.key}
+                onClick={() => t.set(!t.on)}
+                title={t.k ? `Shortcut: ${t.k}` : undefined}
+                className="text-[10px] px-2 py-1.5 border border-neutral-300 font-semibold transition-colors"
+                style={{
+                  borderRight: i < arr.length - 1 ? "none" : undefined,
+                  background: t.on ? "#16a34a" : "transparent",
+                  color: t.on ? "#fff" : "#555",
+                }}
+              >
+                {t.label}{t.k ? ` [${t.k}]` : ""}
               </button>
             ))}
           </div>
@@ -409,6 +528,13 @@ export default function YardMap({ focus, onNavigate }: Props) {
                   setSelectedSlot(null)
                 }}
                 zoneNames={zoneNames}
+                equipment={equipmentPositions}
+                showEquipment={showEquipment}
+                moveTrails={moveTrails}
+                showTrails={showTrails}
+                congestionByBlock={congestionByBlock}
+                showCongestion={showCongestion}
+                activeMoveBlocks={scrubberMin !== null ? activeMoveBlocks : undefined}
               />
             )}
 
@@ -443,9 +569,55 @@ export default function YardMap({ focus, onNavigate }: Props) {
                 mode={mode}
                 onBack={() => setZoomLevel("block")}
                 onNavigate={onNavigate}
+                plannerMode={plannerMode}
+                onPlannerAction={handlePlannerAction}
               />
             )}
           </div>
+
+          {/* Time scrubber — yard level only, seed mode */}
+          {zoomLevel === "yard" && (
+            <div
+              className="flex-none border-t border-neutral-200 px-5 py-2.5 flex items-center gap-4"
+              style={{ background: "#fafafa" }}
+            >
+              <span className="text-[10px] font-bold tracking-widest text-neutral-500 whitespace-nowrap">SHIFT TIMELINE</span>
+              <span className="text-[10.5px] text-neutral-400 tabular whitespace-nowrap">06:00</span>
+              <div className="flex-1 relative flex items-center">
+                <input
+                  type="range"
+                  min={360} max={1320} step={5}
+                  value={scrubberMin ?? (6 * 60)}
+                  onChange={e => setScrubberMin(Number(e.target.value))}
+                  className="w-full accent-neutral-800"
+                />
+                {/* Active-move count badge */}
+                {scrubberMin !== null && (
+                  <span
+                    className="absolute -top-5 text-[9px] font-bold text-amber-700 bg-amber-100 px-1.5 py-px whitespace-nowrap pointer-events-none"
+                    style={{
+                      left: `${((scrubberMin - 360) / (1320 - 360)) * 100}%`,
+                      transform: "translateX(-50%)",
+                      borderRadius: 3,
+                    }}
+                  >
+                    {activeMoveBlocks.size} active block{activeMoveBlocks.size !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10.5px] text-neutral-400 tabular whitespace-nowrap">
+                {scrubberMin !== null
+                  ? `${String(Math.floor(scrubberMin / 60)).padStart(2,"0")}:${String(scrubberMin % 60).padStart(2,"0")}`
+                  : "22:00"}
+              </span>
+              {scrubberMin !== null && (
+                <button
+                  onClick={() => setScrubberMin(null)}
+                  className="text-[10px] text-neutral-400 hover:text-neutral-700 whitespace-nowrap"
+                >✕ reset</button>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -498,6 +670,9 @@ export default function YardMap({ focus, onNavigate }: Props) {
                     setSelectedSlot(null)
                   }}
                   zoneNames={zoneNames}
+                  showEquipment={false}
+                  showTrails={false}
+                  showCongestion={false}
                 />
               )}
 
@@ -645,6 +820,16 @@ export default function YardMap({ focus, onNavigate }: Props) {
               )}
             </div>
           </div>
+        </div>
+      )}
+      {/* Planner toast */}
+      {plannerToast && (
+        <div
+          className="fixed top-4 right-4 z-50 flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-semibold text-green-900 border border-green-300 shadow-lg"
+          style={{ background: "#f0fdf4", borderRadius: 6, animation: "slideInRight 200ms ease-out" }}
+        >
+          <span style={{ color: "#16a34a", fontSize: 16 }}>✓</span>
+          {plannerToast}
         </div>
       )}
     </div>

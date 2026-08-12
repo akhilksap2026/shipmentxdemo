@@ -4,20 +4,23 @@ import type { ColorMode } from "@/lib/yard-color"
 import type { ViewContainer } from "./types"
 
 interface Props {
-  blockLabel: string
-  zoneName:   string
-  slotCol:    number
-  rowNum:     number
-  maxTiers:   number
-  containers: ViewContainer[]   // all in this slot (one per occupied tier)
-  mode:       ColorMode
-  onBack:     () => void
-  onNavigate?: (screen: string, focusId?: string) => void
+  blockLabel:       string
+  zoneName:         string
+  slotCol:          number
+  rowNum:           number
+  maxTiers:         number
+  containers:       ViewContainer[]   // all in this slot (one per occupied tier)
+  mode:             ColorMode
+  onBack:           () => void
+  onNavigate?:      (screen: string, focusId?: string) => void
+  plannerMode?:     boolean
+  onPlannerAction?: (action: string, containerId: string) => void
 }
 
 export default function SlotStackView({
   blockLabel, zoneName, slotCol, rowNum, maxTiers,
   containers, mode, onBack, onNavigate,
+  plannerMode = false, onPlannerAction,
 }: Props) {
   const [selTier, setSelTier] = useState<number | null>(
     containers.length > 0 ? containers[0].tier : null,
@@ -199,6 +202,36 @@ export default function SlotStackView({
                   <span className="flex-1 leading-tight">{h.what}</span>
                 </div>
               ))}
+
+              {/* Planner actions */}
+              {plannerMode && selC && onPlannerAction && (
+                <>
+                  <div className="px-5 pt-3 pb-1.5 ds-label text-neutral-400 flex items-center gap-2">
+                    <span
+                      className="text-[9px] font-bold px-1.5 py-0.5 uppercase"
+                      style={{ background: "#16a34a", color: "#fff", borderRadius: 3 }}
+                    >Planner mode</span>
+                    Planned actions
+                  </div>
+                  <div className="flex flex-col gap-1.5 px-5 pb-3">
+                    {[
+                      { action: "retrieval", label: "Plan retrieval", sub: "→ S-01 (staging)", color: "#1d4ed8" },
+                      { action: "reposition", label: "Plan reposition", sub: "→ lowest-occupancy slot in zone", color: "#7c3aed" },
+                      { action: "stage",     label: "Stage for outbound", sub: "→ S-01", color: "#b45309" },
+                    ].map(({ action, label, sub, color }) => (
+                      <button
+                        key={action}
+                        onClick={() => onPlannerAction(action, selC.id)}
+                        className="text-left px-3 py-2.5 text-[11.5px] font-semibold hover:opacity-90 transition-opacity"
+                        style={{ background: color, color: "#fff", borderRadius: 5, border: "none" }}
+                      >
+                        {label}
+                        <span className="block text-[10px] font-normal opacity-75 mt-0.5">{selC.id} {sub}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {onNavigate && (
                 <>

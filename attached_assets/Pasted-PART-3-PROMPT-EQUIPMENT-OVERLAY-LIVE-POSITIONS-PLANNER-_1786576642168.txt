@@ -1,0 +1,131 @@
+PART 3 PROMPT: EQUIPMENT OVERLAY + LIVE POSITIONS + PLANNER ACTIONS
+Read the current state of all yard components after Part 2. Then implement the following to make the map a "planner's playground."
+Step 1: Add equipment position tracking
+In src/data/yard-data.ts, add a function that computes realistic jockey positions based on their assigned moves:
+export interface EquipmentPosition {
+id: string
+type: "jockey" | "reach-stacker" | "empty-handler"
+name: string
+operatorName: string
+x: number // yard coordinate
+y: number // yard coordinate
+status: "idle" | "moving" | "lifting" | "travelling"
+currentBlock: string
+destinationBlock?: string
+progress: number // 0-1 for animation
+}
+export function computeEquipmentPositions(
+operators: typeof OPERATORS,
+moves: Move[],
+containers: Container[]
+): EquipmentPosition[] {
+// For each operator on shift:
+// - If they have an IN_PROGRESS move, position them at the move's from address
+// - If they have an ASSIGNED move, position them traveling between blocks
+// - Otherwise, position them at their equipment's "home" block
+// Compute x/y from the block's position in the yard layout
+// Return array of equipment positions
+}
+Add home block assignments:
+RS-01 → A-01
+RS-02 → A-03
+RS-03 → B-01
+EH-01 → E-01
+Step 2: Add equipment overlay to PhysicalYardMap
+In src/components/yard/PhysicalYardMap.tsx:
+Add an "equipment" prop: EquipmentPosition[]
+Render each piece of equipment as a small icon on the yard canvas:
+Jockey = small circle (8px), color by status:
+idle = #16a34a (green)
+moving = #f59e0b (amber)
+lifting = #dc2626 (red)
+travelling = #3b82f6 (blue)
+Reach stacker = small square (10px), dark gray #374151
+Empty handler = small triangle, purple #9333ea
+Add a tooltip on hover showing:
+Equipment ID + operator name
+Current status
+Current block
+Destination block (if moving)
+Progress percentage
+Add an equipment toggle button in the toolbar: "Show equipment"
+Step 3: Add recent move trails
+In src/lib/yard-layout.ts, add:
+export interface MoveTrail {
+id: string
+fromBlock: string
+toBlock: string
+fromX: number
+fromY: number
+toX: number
+toY: number
+completedAt: string
+operatorId: string
+}
+export function computeMoveTrails(
+moves: Move[],
+layouts: BlockLayout[]
+): MoveTrail[] {
+// For the last 10 completed moves:
+// - Find from and to block positions from layouts
+// - Return trail data
+}
+In PhysicalYardMap, render move trails as faint dashed lines between blocks:
+Line color: #94a3b8
+Line style: dashed, 1px
+Opacity: 0.4
+Fade out trails older than 30 minutes
+Add a toggle button: "Show move trails"
+Step 4: Add planner action mode
+Add a new state to YardMap: plannerMode: boolean
+When planner mode is ON:
+Clicking a container in SlotStackView shows action buttons:
+"Plan retrieval" → creates a retrieval move for this container
+"Plan reposition" → suggests moving to a better slot
+"Stage for outbound" → plans a move to staging area
+These actions are visual only (no backend write yet)
+Show a toast confirmation: "Retrieval move planned for [container] → [suggested destination]"
+Suggested destination logic (simple heuristic):
+For "Plan retrieval": destination = nearest staging block (S-01)
+For "Plan reposition": destination = block in same zone with lowest occupancy
+For "Stage for outbound": destination = S-01
+Step 5: Add congestion heat overlay
+In PhysicalYardMap, add a "congestion" toggle:
+Compute congestion per block = (active moves in block + equipment in block) / capacity
+Color block backgrounds with heat gradient:
+0-25%: no change
+25-50%: slight yellow tint
+50-75%: orange tint
+75-100%: red tint
+Show congestion % in block label
+Step 6: Add animation polish
+When zooming from yard → block: smooth scale+translate animation (300ms, ease-out)
+When zooming from block → slot: smooth fade+scale animation (200ms)
+When equipment moves: CSS transition on position (1s, linear)
+When a container is clicked: brief pulse animation on its card
+When planner mode action is taken: success toast slides in from top-right
+Step 7: Add yard-wide time scrubber
+Add a horizontal time scrubber at the bottom of the yard map:
+Shows hours 06:00 to 22:00
+Current time marker moves along the scrubber
+Clicking a time shows the yard state at that time (for seed data, use move states to determine which moves are done by that time)
+Completed moves change container positions in the visualization
+For seed mode: compute container positions at time T by applying all moves with end time <= T.
+For live mode: show current time only (no scrubber, or disabled).
+Step 8: Final integration and cleanup
+Ensure all three zoom levels work seamlessly with both seed and live data
+Ensure the dashboard view still works
+Ensure all toolbar controls work at all zoom levels
+Add keyboard shortcuts:
+ESC = go up one zoom level
+1 = yard view
+2 = block view (if selected)
+3 = slot view (if selected)
+E = toggle equipment overlay
+T = toggle move trails
+Run npm run build to verify TypeScript compiles cleanly.
+Rules:
+Do not change the backend API or server files.
+Do not modify any screen other than YardMap.
+All planner actions are frontend-only for this iteration.
+Preserve all existing functionality from Parts 1 and 2.

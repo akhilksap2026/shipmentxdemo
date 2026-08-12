@@ -1,4 +1,107 @@
-import type { Container, Zone } from "@/data/yard-data"
+import type { Container, Zone, Move } from "@/data/yard-data"
+
+// ── Equipment overlay ─────────────────────────────────────────────────────────
+
+export interface EquipmentPosition {
+  id:               string
+  type:             "jockey" | "reach-stacker" | "empty-handler"
+  name:             string
+  operatorName:     string
+  x:                number  // layout-space centre of currentBlock
+  y:                number
+  status:           "idle" | "moving" | "lifting" | "travelling"
+  currentBlock:     string
+  destinationBlock?: string
+  progress:         number  // 0–1
+}
+
+const HOME_BLOCKS: Record<string, string> = {
+  "RS-01": "A-01", "RS-02": "A-03", "RS-03": "B-01", "EH-01": "E-01",
+}
+
+function blockCenter(label: string, layouts: BlockLayout[]): { x: number; y: number } {
+  const l = layouts.find(l => l.label === label)
+  return l ? { x: l.x + l.w / 2, y: l.y + l.h / 2 } : { x: 120, y: 120 }
+}
+
+function parseBlock(address: string): string {
+  return address.match(/^([A-Z]-\d+)/)?.[1] ?? ""
+}
+
+export function computeEquipmentPositions(
+  operators: Array<{ id: string; name: string; equipment: string; status: string }>,
+  moves: Move[],
+  layouts: BlockLayout[],
+): EquipmentPosition[] {
+  return operators
+    .filter(op => op.status === "on shift")
+    .map((op, idx) => {
+      const type: EquipmentPosition["type"] =
+        op.equipment.startsWith("RS") ? "reach-stacker"
+        : op.equipment.startsWith("EH") ? "empty-handler"
+        : "jockey"
+
+      const inProg   = moves.find(m => m.operator === op.id && m.state === "IN_PROGRESS")
+      const assigned = moves.find(m => m.operator === op.id && m.state === "ASSIGNED")
+
+      let status: EquipmentPosition["status"] = "idle"
+      let currentBlock = HOME_BLOCKS[op.equipment] ?? "A-01"
+      let destinationBlock: string | undefined
+      const progress = assigned ? 0.4 : 0
+
+      if (inProg) {
+        currentBlock = parseBlock(inProg.from) || currentBlock
+        status = "lifting"
+      } else if (assigned) {
+        currentBlock        = parseBlock(assigned.from) || currentBlock
+        destinationBlock    = parseBlock(assigned.to) || undefined
+        status = "travelling"
+      }
+
+      const { x, y } = blockCenter(currentBlock, layouts)
+      // Small spread so multiple units in same block don't completely overlap
+      const spread = (idx % 3) * 6 - 6
+
+      return {
+        id: op.equipment, type, name: op.equipment, operatorName: op.name,
+        x: x + spread, y: y + (idx % 2 === 0 ? 3 : -3),
+        status, currentBlock, destinationBlock, progress,
+      }
+    })
+}
+
+// ── Move trails ───────────────────────────────────────────────────────────────
+
+export interface MoveTrail {
+  id:          string
+  fromBlock:   string
+  toBlock:     string
+  fromX:       number
+  fromY:       number
+  toX:         number
+  toY:         number
+  completedAt: string
+  operatorId:  string
+}
+
+export function computeMoveTrails(moves: Move[], layouts: BlockLayout[]): MoveTrail[] {
+  return moves
+    .filter(m => m.state === "DONE")
+    .slice(-10)
+    .map(m => {
+      const from = parseBlock(m.from)
+      const to   = parseBlock(m.to)
+      const fPos = blockCenter(from, layouts)
+      const tPos = blockCenter(to, layouts)
+      return {
+        id: m.id, fromBlock: from, toBlock: to,
+        fromX: fPos.x, fromY: fPos.y,
+        toX:   tPos.x, toY:   tPos.y,
+        completedAt: m.end,
+        operatorId:  m.operator,
+      }
+    })
+}
 
 export interface BlockLayout {
   zone: string
