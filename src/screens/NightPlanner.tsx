@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { TYPE_LABEL, VESSEL_SCHEDULES, CONTAINERS, getHotContainers, type Move } from "@/data/yard-data"
+import { TYPE_LABEL, VESSEL_SCHEDULES, CONTAINERS, getHotContainers, EQUIPMENT, OPERATORS, type Move } from "@/data/yard-data"
 import { useData } from "@/lib/DataContext"
 import { adaptMoveForDisplay, REASON_LABELS } from "@/lib/backend-adapters"
 import { backendApi } from "@/lib/backend-api"
@@ -71,6 +71,23 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
   const [moveHistoryOpen,   setMoveHistoryOpen]    = useState(false)          // Step 4
   const [ganttExpanded,     setGanttExpanded]      = useState(false)          // Step 5
   const colChooserRef = useRef<HTMLDivElement>(null)
+
+  // ── Manual edit state ────────────────────────────────────────────────────
+  const [editOpen,      setEditOpen]      = useState(false)
+  const [editEquip,     setEditEquip]     = useState("")
+  const [editOpId,      setEditOpId]      = useState("")
+  const [editStart,     setEditStart]     = useState("")
+  const [editEnd,       setEditEnd]       = useState("")
+  // overrides keyed by move id — merged at display time
+  const [moveOverrides, setMoveOverrides] = useState<Record<string, {
+    equipment?: string; operator?: string; operatorName?: string
+    start?: string; end?: string; passed?: boolean
+  }>>({})
+
+  // Reset edit draft whenever the selected move changes
+  useEffect(() => {
+    setEditOpen(false)
+  }, [sel])
 
   // ── Keep viewedPlan in sync with activePlan ───────────────────────────────
   useEffect(() => { setViewedPlan(prev => prev ?? activePlan) }, [activePlan])
@@ -160,7 +177,10 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
     (filter === "ALL" || m.type === filter) &&
     (!ql || (m.containerId+m.from+m.to+m.operatorName+m.equipment+m.type).toLowerCase().includes(ql))
   )
-  const selMove    = moves.find(m => m.id === sel) || null
+  const selMoveRaw = moves.find(m => m.id === sel) || null
+  const selMove    = selMoveRaw
+    ? { ...selMoveRaw, ...(moveOverrides[selMoveRaw.id] || {}) }
+    : null
   const onShift    = operators.filter(o => o.status === "on shift")
   const totalMin   = moves.reduce((a,m) => a+m.estMin, 0)
   const frozenCount = moves.filter(m => m.frozen).length
@@ -625,11 +645,30 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 {selMove ? (
                   <div>
                     {/* Move header */}
-                    <div className="px-4 pt-3 pb-3">
-                      <div className="ds-label"><span className="font-mono">{selMove.id}</span> · seq <span className="font-mono">{selMove.seq}</span></div>
-                      <div className="font-semibold text-base mt-1 tracking-tight">{TYPE_LABEL[selMove.type]}</div>
-                      <div className="text-[12px] mt-1 font-mono text-[#374151]">{selMove.containerId}</div>
-                      <div className="text-[12px] font-mono text-[#9ca3af]">{selMove.from} → {selMove.to}</div>
+                    <div className="px-4 pt-3 pb-3 flex items-start justify-between gap-2">
+                      <div>
+                        <div className="ds-label"><span className="font-mono">{selMove.id}</span> · seq <span className="font-mono">{selMove.seq}</span></div>
+                        <div className="font-semibold text-base mt-1 tracking-tight">{TYPE_LABEL[selMove.type]}</div>
+                        <div className="text-[12px] mt-1 font-mono text-[#374151]">{selMove.containerId}</div>
+                        <div className="text-[12px] font-mono text-[#9ca3af]">{selMove.from} → {selMove.to}</div>
+                      </div>
+                      {!editOpen && (
+                        <button
+                          onClick={() => {
+                            setEditEquip(selMove.equipment)
+                            const op = OPERATORS.find(o => o.equipment === selMove.equipment) || OPERATORS[0]
+                            setEditOpId(selMove.operator || op.id)
+                            setEditStart(selMove.start)
+                            setEditEnd(selMove.end)
+                            setEditOpen(true)
+                          }}
+                          className="flex-none flex items-center gap-1 text-[11px] font-medium text-[#374151] px-2 py-1 mt-0.5"
+                          style={{ border:"1px solid #e5e7eb", borderRadius:5, background:"#fff", whiteSpace:"nowrap" }}
+                          title="Edit assignment"
+                        >
+                          <span style={{ fontSize:12 }}>✎</span> Edit
+                        </button>
+                      )}
                     </div>
 
                     {/* Step 4: WHY THIS MOVE — always visible */}
@@ -638,20 +677,148 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                       <div className="text-[12.5px] leading-relaxed">{selMove.reason}</div>
                     </div>
 
+                    {/* ── Inline edit form ─────────────────────────────────── */}
+                    {editOpen && (() => {
+                      const machineOps = OPERATORS.filter(o => o.equipment === editEquip)
+                      const selectedOp = OPERATORS.find(o => o.id === editOpId)
+                      return (
+                        <div className="mx-4 mb-3 rounded-lg" style={{ border:"1px solid #e5e7eb", background:"#fafafa" }}>
+                          <div className="px-3 pt-3 pb-2 flex items-center justify-between">
+                            <span className="text-[11px] font-bold tracking-wider text-[#374151] uppercase">Edit assignment</span>
+                            <button
+                              onClick={() => setEditOpen(false)}
+                              className="text-[#9ca3af] hover:text-[#374151] text-[13px] leading-none"
+                              style={{ padding:"2px 5px" }}
+                            >✕</button>
+                          </div>
+
+                          {/* Machine */}
+                          <div className="px-3 pb-2">
+                            <label className="text-[10.5px] text-[#9ca3af] font-medium block mb-1">Machine</label>
+                            <select
+                              value={editEquip}
+                              onChange={e => {
+                                setEditEquip(e.target.value)
+                                const first = OPERATORS.find(o => o.equipment === e.target.value)
+                                if (first) setEditOpId(first.id)
+                              }}
+                              className="w-full text-[12px] font-mono px-2 py-1.5 rounded"
+                              style={{ border:"1px solid #e5e7eb", background:"#fff", color:"#374151" }}
+                            >
+                              {EQUIPMENT.map(eq => (
+                                <option key={eq.id} value={eq.id}>
+                                  {eq.id} — {eq.type} ({eq.status})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Operator */}
+                          <div className="px-3 pb-2">
+                            <label className="text-[10.5px] text-[#9ca3af] font-medium block mb-1">Operator</label>
+                            {machineOps.length > 0 ? (
+                              <select
+                                value={editOpId}
+                                onChange={e => setEditOpId(e.target.value)}
+                                className="w-full text-[12px] font-mono px-2 py-1.5 rounded"
+                                style={{ border:"1px solid #e5e7eb", background:"#fff", color:"#374151" }}
+                              >
+                                {machineOps.map(op => (
+                                  <option key={op.id} value={op.id}>
+                                    {op.name} · {op.id} ({op.status})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="text-[11.5px] text-[#9ca3af] px-2 py-1.5 rounded font-mono"
+                                style={{ border:"1px solid #e5e7eb", background:"#f9fafb" }}>
+                                No operators certified for {editEquip}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Window */}
+                          <div className="px-3 pb-2">
+                            <label className="text-[10.5px] text-[#9ca3af] font-medium block mb-1">Window</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editStart}
+                                onChange={e => setEditStart(e.target.value)}
+                                placeholder="HH:MM"
+                                className="flex-1 text-[12px] font-mono px-2 py-1.5 rounded text-center"
+                                style={{ border:"1px solid #e5e7eb", background:"#fff", color:"#374151" }}
+                              />
+                              <span className="text-[11px] text-[#9ca3af]">→</span>
+                              <input
+                                type="text"
+                                value={editEnd}
+                                onChange={e => setEditEnd(e.target.value)}
+                                placeholder="HH:MM"
+                                className="flex-1 text-[12px] font-mono px-2 py-1.5 rounded text-center"
+                                style={{ border:"1px solid #e5e7eb", background:"#fff", color:"#374151" }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="px-3 pb-3 pt-1 flex gap-2">
+                            <button
+                              onClick={() => {
+                                const op = OPERATORS.find(o => o.id === editOpId)
+                                setMoveOverrides(prev => ({
+                                  ...prev,
+                                  [sel]: {
+                                    ...prev[sel],
+                                    equipment: editEquip,
+                                    operator: editOpId,
+                                    operatorName: op?.name || editOpId,
+                                    start: editStart,
+                                    end: editEnd,
+                                  }
+                                }))
+                                setEditOpen(false)
+                              }}
+                              className="flex-1 text-[12px] font-semibold py-1.5 rounded text-white"
+                              style={{ background:"#111827" }}
+                            >
+                              Save changes
+                            </button>
+                            <button
+                              onClick={() => {
+                                setMoveOverrides(prev => ({
+                                  ...prev,
+                                  [sel]: { ...prev[sel], passed: true }
+                                }))
+                                setEditOpen(false)
+                              }}
+                              className="flex-none text-[12px] font-semibold px-3 py-1.5 rounded"
+                              style={{ border:"1px solid #dc2626", color:"#dc2626", background:"#fff5f5" }}
+                            >
+                              Pass move
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
                     {/* Key-value detail rows */}
-                    {[
-                      ["Machine / operator", selMove.equipment+" · "+selMove.operatorName],
-                      ["Window", selMove.start+"–"+selMove.end+" ("+selMove.estMin.toFixed(1)+"′)"],
-                      ["Travel / lift / set-down", (selMove.estMin*0.45).toFixed(1)+" / "+(selMove.estMin*0.3).toFixed(1)+" / "+(selMove.estMin*0.25).toFixed(1)],
-                      ["Order priority", selMove.priority],
-                      ["State", selMove.frozen ? selMove.state.toLowerCase()+" · frozen" : selMove.state.toLowerCase()],
-                      ["Weight snapshot", "WS-2026-08-10#a41f9c"],
-                    ].map(([k,v]) => (
-                      <div key={k} className="flex justify-between gap-3 px-4 py-2 border-b border-[#f3f4f6] text-[11.5px]">
-                        <span className="text-[#9ca3af]">{k}</span>
-                        <span className="font-semibold font-mono text-right">{v}</span>
-                      </div>
-                    ))}
+                    {(() => {
+                      const isPassed = !!(moveOverrides[sel]?.passed)
+                      return [
+                        ["Machine / operator", selMove.equipment+" · "+selMove.operatorName],
+                        ["Window", selMove.start+"–"+selMove.end+" ("+selMove.estMin.toFixed(1)+"′)"],
+                        ["Travel / lift / set-down", (selMove.estMin*0.45).toFixed(1)+" / "+(selMove.estMin*0.3).toFixed(1)+" / "+(selMove.estMin*0.25).toFixed(1)],
+                        ["Order priority", selMove.priority],
+                        ["State", isPassed ? "passed" : (selMove.frozen ? selMove.state.toLowerCase()+" · frozen" : selMove.state.toLowerCase())],
+                        ["Weight snapshot", "WS-2026-08-10#a41f9c"],
+                      ].map(([k,v]) => (
+                        <div key={k} className="flex justify-between gap-3 px-4 py-2 border-b border-[#f3f4f6] text-[11.5px]">
+                          <span className="text-[#9ca3af]">{k}</span>
+                          <span className={`font-semibold font-mono text-right ${k==="State" && isPassed ? "text-[#9ca3af] line-through" : ""}`}>{v}</span>
+                        </div>
+                      ))
+                    })()}
 
                     {/* Step 4: Hard constraints — accordion, default closed */}
                     <AccordionHeader label="Hard constraints" open={constraintsOpen} onToggle={() => setConstraintsOpen(v => !v)} />
