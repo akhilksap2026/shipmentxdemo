@@ -652,7 +652,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                         <div className="text-[12px] mt-1 font-mono text-[#374151]">{selMove.containerId}</div>
                         <div className="text-[12px] font-mono text-[#9ca3af]">{selMove.from} → {selMove.to}</div>
                       </div>
-                      {!editOpen && (
+                      {!editOpen && !published && (
                         <button
                           onClick={() => {
                             setEditEquip(selMove.equipment)
