@@ -483,159 +483,36 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
       </div>
 
 
-      {/* ── Vessel schedule — vertical timeline (seed mode) ──────────────────── */}
-      {planSource === "seed" && (() => {
-        // Time range: 06:00–26:00 (02:00 next day) = 1200 min
-        const RANGE_START = 6 * 60   // 360
-        const RANGE_END   = 26 * 60  // 1560
-        const RANGE_SPAN  = RANGE_END - RANGE_START  // 1200
-
-        const toMin = (hhmm: string, nextDayIfBefore?: number) => {
-          const [h, m] = hhmm.split(":").map(Number)
-          let mins = h * 60 + m
-          if (nextDayIfBefore !== undefined && mins < nextDayIfBefore) mins += 24 * 60
-          return mins
-        }
-        const pct = (mins: number) =>
-          Math.min(100, Math.max(0, ((mins - RANGE_START) / RANGE_SPAN) * 100))
-
-        const TICKS = ["06","08","10","12","14","16","18","20","22","00","02"]
-
-        return (
-          <div className="flex-none border-b border-[#e5e7eb] bg-white px-4 pt-2.5 pb-3">
-            <div className="flex items-start gap-3">
-              {/* Section label */}
-              <div className="flex-none pt-4" style={{ width: 104 }}>
-                <span className="ds-label">Vessel schedule</span>
-              </div>
-
-              {/* Timeline area */}
-              <div className="flex-1 min-w-0">
-                {/* Hour axis */}
-                <div className="relative flex mb-1" style={{ height: 14 }}>
-                  {TICKS.map((tick, i) => (
-                    <div
-                      key={tick+i}
-                      className="absolute text-[9px] font-mono text-[#c4c9d4]"
-                      style={{ left: `${(i / (TICKS.length - 1)) * 100}%`, transform:"translateX(-50%)" }}
-                    >{tick}</div>
-                  ))}
-                </div>
-
-                {/* Grid lines */}
-                <div className="relative" style={{ marginBottom: 0 }}>
-                  <div className="absolute inset-0 flex pointer-events-none" style={{ zIndex:0 }}>
-                    {TICKS.map((tick, i) => (
-                      <div
-                        key={tick+i}
-                        className="absolute top-0 bottom-0"
-                        style={{ left:`${(i / (TICKS.length - 1)) * 100}%`, width:1, background:"#f3f4f6" }}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Vessel rows */}
-                  {VESSEL_SCHEDULES.map(v => {
-                    const onBoardSet  = new Set(v.containersOnBoard)
-                    const rawInPlan   = moves.filter(m => onBoardSet.has(m.containerId)).length
-                    const total       = v.containersOnBoard.length
-                    const displayInPlan = Math.max(rawInPlan, Math.ceil(total * 0.85))
-                    const coverage    = Math.round((displayInPlan / total) * 100)
-                    const isHot       = hotContainerIds.size > 0 && v.containersOnBoard.some(id => hotContainerIds.has(id))
-
-                    const [bStartStr, bEndStr] = v.berthWindow.split("–")
-                    const bStartMin  = toMin(bStartStr)
-                    const bEndMin    = toMin(bEndStr, bStartMin)   // handle overnight
-                    const cutoffMin  = toMin(v.cutoffTime)
-
-                    const barLeft    = pct(bStartMin)
-                    const barRight   = pct(bEndMin)
-                    const barWidth   = barRight - barLeft
-                    const fillWidth  = barWidth * (coverage / 100)
-                    const cutoffPct  = pct(cutoffMin)
-
-                    return (
-                      <div key={v.voyage} className="relative flex items-center gap-2 mb-1.5" style={{ height: 28, zIndex:1 }}>
-                        {/* Name + meta */}
-                        <div className="flex-none" style={{ width: 0, overflow:"visible", position:"relative" }}>
-                          {/* row background — full width */}
-                        </div>
-
-                        {/* Full-width bar track */}
-                        <div className="flex-1 relative" style={{ height: 28 }}>
-                          {/* Track background */}
-                          <div className="absolute inset-y-2 left-0 right-0 rounded-sm" style={{ background:"#f9fafb" }} />
-
-                          {/* Berth window — tinted background */}
-                          <div
-                            className="absolute inset-y-1 rounded"
-                            style={{
-                              left:`${barLeft}%`, width:`${barWidth}%`,
-                              background: isHot ? "#fff0e6" : "#eff6ff",
-                              border: `1px solid ${isHot ? "#fed7aa" : "#bfdbfe"}`,
-                            }}
-                          />
-
-                          {/* Coverage fill */}
-                          <div
-                            className="absolute rounded"
-                            style={{
-                              left:`${barLeft}%`, width:`${fillWidth}%`,
-                              top: 6, bottom: 6,
-                              background: isHot ? "#f97316" : "#3b82f6",
-                              opacity: 0.85,
-                            }}
-                          />
-
-                          {/* Cutoff marker */}
-                          {cutoffPct >= 0 && cutoffPct <= 100 && (
-                            <div
-                              className="absolute"
-                              style={{ left:`${cutoffPct}%`, top: 2, bottom: 2, width: 1.5, background:"#ef4444", borderRadius:1 }}
-                              title={`Cutoff ${v.cutoffTime}`}
-                            />
-                          )}
-
-                          {/* Vessel label inside / beside bar */}
-                          <div
-                            className="absolute flex items-center gap-1.5 pointer-events-none"
-                            style={{ left:`${barLeft}%`, top:0, bottom:0, paddingLeft: 6 }}
-                          >
-                            {isHot && <span style={{ fontSize:10 }}>🔥</span>}
-                            <span className="text-[10.5px] font-semibold text-[#374151] whitespace-nowrap leading-none">
-                              {v.vesselName}
-                              <span className="ml-1 font-mono font-normal text-[9.5px] text-[#9ca3af]">{v.voyage}</span>
-                            </span>
-                            <span className="text-[9px] font-mono text-[#9ca3af] whitespace-nowrap leading-none">
-                              {v.berthWindow}
-                            </span>
-                          </div>
-
-                          {/* Coverage badge — right of bar */}
-                          <div
-                            className="absolute flex items-center gap-1"
-                            style={{ left:`${barRight}%`, top:0, bottom:0, paddingLeft: 5, whiteSpace:"nowrap" }}
-                          >
-                            <span
-                              className="text-[9.5px] font-mono font-bold"
-                              style={{ color: coverage >= 85 ? "#16a34a" : "#dc2626" }}
-                            >
-                              {coverage}%
-                            </span>
-                            <span className="text-[9px] text-[#9ca3af] font-mono">
-                              {displayInPlan}/{total} · C {v.cutoffTime}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+      {/* ── Vessel schedule (seed mode) ──────────────────────────────────────── */}
+      {planSource === "seed" && (
+        <div className="flex-none overflow-x-auto border-b border-[#e5e7eb] bg-white" style={{ scrollbarWidth:"none" }}>
+          <div className="flex gap-0 min-w-max">
+            <div className="flex items-center px-4 py-2 border-r border-[#e5e7eb] flex-none">
+              <span className="ds-label whitespace-nowrap">Vessel schedule</span>
             </div>
+            {VESSEL_SCHEDULES.map(v => {
+              const onBoardSet   = new Set(v.containersOnBoard)
+              const inPlan       = moves.filter(m => onBoardSet.has(m.containerId)).length
+              const isHotVessel  = hotContainerIds.size > 0 && v.containersOnBoard.some(id => hotContainerIds.has(id))
+              return (
+                <div key={v.voyage} className="flex items-center gap-4 px-4 py-2 border-r border-[#e5e7eb] flex-none" style={{ background: isHotVessel ? "#fff8f5" : undefined }}>
+                  <div>
+                    <div className="text-[12px] font-semibold leading-tight whitespace-nowrap">
+                      {isHotVessel && <span className="mr-1">🔥</span>}{v.vesselName}
+                      <span className="ml-1.5 font-mono text-[10.5px] text-[#9ca3af]">{v.voyage}</span>
+                    </div>
+                    <div className="flex gap-3 mt-0.5 text-[10.5px] text-[#9ca3af]">
+                      <span>Berth <span className="font-mono text-[#374151]">{v.berthWindow}</span></span>
+                      <span>Cutoff <span className="font-mono text-[#374151]">{v.cutoffTime}</span></span>
+                      <span><span className="font-mono text-[#374151]">{inPlan}</span> moves in plan</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        )
-      })()}
+        </div>
+      )}
 
       {/* ── Engine: no plan / spinner ─────────────────────────────────────────── */}
       {planSource === "engine" && !viewedPlan && !generating && (
