@@ -650,50 +650,42 @@ export default function YardMap({ focus, onNavigate }: Props) {
             </div>
           </div>
 
-          {/* ── Step 3: Slide-out drawer (320px from right) ────────────────── */}
+          {/* ── Step 3: Slide-out drawer (560px from right) ────────────────── */}
           <div
-            className="absolute top-0 right-0 bottom-0 z-30 bg-white overflow-auto"
+            className="absolute top-0 right-0 bottom-0 z-30 bg-white flex flex-col"
             style={{
-              width: 320,
-              transform: drawerOpen ? "translateX(0)" : "translateX(320px)",
+              width: 560,
+              transform: drawerOpen ? "translateX(0)" : "translateX(560px)",
               transition: "transform 250ms ease",
-              boxShadow: drawerOpen ? "-4px 0 24px rgba(0,0,0,0.10)" : "none",
+              boxShadow: drawerOpen ? "-4px 0 24px rgba(0,0,0,0.12)" : "none",
             }}
           >
-            {/* Drawer header */}
-            <div className="flex items-center justify-between px-4 pt-4 pb-3">
-              <div>
-                {selectedSlot && (
-                  <div className="font-semibold text-[14px] tracking-tight">
-                    Bay {selectedSlot.col} · Row {selectedSlot.row}
+            {/* Floating close button — always visible at top-right */}
+            <button
+              onClick={() => { setDrawerOpen(false); setSelectedSlot(null) }}
+              className="absolute top-3 right-3 z-10 text-neutral-400 hover:text-neutral-800 transition-colors"
+              style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: "#f3f4f6", border: "none",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13, cursor: "pointer",
+              }}
+              title="Close"
+            >
+              ✕
+            </button>
+
+            {/* Slot stack view fills the drawer */}
+            <div className="flex flex-col flex-1 min-h-0">
+              {drawerOpen && selectedSlot
+                ? drawerSlotView()
+                : drawerOpen && (
+                  <div className="px-5 py-8 text-[12.5px] text-neutral-400 leading-relaxed">
+                    Click a slot in the block view to see the container stack at that position.
                   </div>
-                )}
-                {selectedBlockLabel && !selectedSlot && (
-                  <div className="font-semibold text-[14px] tracking-tight">{selectedBlockLabel}</div>
-                )}
-                <div className="text-[11px] text-neutral-500 mt-0.5">
-                  {(selectedBlockLabel ?? activeLiveBlock) ?? ""}
-                </div>
-              </div>
-              <button
-                onClick={() => { setDrawerOpen(false); setSelectedSlot(null) }}
-                className="text-neutral-400 hover:text-neutral-800 transition-colors text-sm ml-2 flex-none"
-              >
-                ✕
-              </button>
+                )
+              }
             </div>
-
-            {/* Drawer content — slot stack view */}
-            <div style={{ borderTop:"1px solid #f3f4f6" }}>
-              {drawerOpen && drawerSlotView()}
-            </div>
-
-            {/* Empty state (drawer open but no slot selected yet) */}
-            {drawerOpen && !selectedSlot && (
-              <div className="px-4 py-4 text-[12px] text-neutral-500 leading-relaxed">
-                Click a slot in the block view to see the container stack at that position.
-              </div>
-            )}
           </div>
         </div>
       )}
