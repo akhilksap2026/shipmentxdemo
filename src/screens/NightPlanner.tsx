@@ -78,10 +78,11 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
   const [editOpId,      setEditOpId]      = useState("")
   const [editStart,     setEditStart]     = useState("")
   const [editEnd,       setEditEnd]       = useState("")
+  const [editTo,        setEditTo]        = useState("")
   // overrides keyed by move id — merged at display time
   const [moveOverrides, setMoveOverrides] = useState<Record<string, {
     equipment?: string; operator?: string; operatorName?: string
-    start?: string; end?: string; passed?: boolean
+    start?: string; end?: string; to?: string; passed?: boolean
   }>>({})
 
   // Reset edit draft whenever the selected move changes
@@ -654,6 +655,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                             setEditOpId(selMove.operator || op.id)
                             setEditStart(selMove.start)
                             setEditEnd(selMove.end)
+                            setEditTo(selMove.to)
                             setEditOpen(true)
                           }}
                           className="flex-none flex items-center gap-1 text-[11px] font-medium text-[#374151] px-2 py-1 mt-0.5"
@@ -755,6 +757,20 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                             </div>
                           </div>
 
+                          {/* Target location */}
+                          <div className="px-3 pb-2">
+                            <label className="text-[10.5px] text-[#9ca3af] font-medium block mb-1">Target location</label>
+                            <input
+                              type="text"
+                              value={editTo}
+                              onChange={e => setEditTo(e.target.value)}
+                              placeholder="e.g. A-03-1-9-3"
+                              className="w-full text-[12px] font-mono px-2 py-1.5 rounded"
+                              style={{ border:"1px solid #e5e7eb", background:"#fff", color:"#374151" }}
+                            />
+                            <div className="text-[10px] text-[#9ca3af] mt-1">Current: <span className="font-mono">{selMove.to}</span></div>
+                          </div>
+
                           {/* Actions */}
                           <div className="px-3 pb-3 pt-1 flex gap-2">
                             <button
@@ -769,6 +785,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                                     operatorName: op?.name || editOpId,
                                     start: editStart,
                                     end: editEnd,
+                                    to: editTo,
                                   }
                                 }))
                                 setEditOpen(false)
