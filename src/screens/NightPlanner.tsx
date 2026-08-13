@@ -397,7 +397,7 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
                 <>
                   {renderGroup("Operational Controls", operational)}
                   <div className="h-px bg-[#f3f4f6] mx-4 mb-1" />
-                  {renderGroup("External Inputs", external)}
+                  {renderGroup("Observations", external)}
                 </>
               )
             })()}
