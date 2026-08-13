@@ -369,14 +369,38 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
               <button onClick={() => setDrawerOpen(false)} className="text-[#9ca3af] hover:text-neutral-800 text-[12px]">✕</button>
             </div>
             <div className="px-4 pt-3 pb-2 ds-label font-bold">Assumptions</div>
-            {assumptions.map(a => (
-              <div key={a.k} className="px-4 pb-2">
-                <div className="text-[12px] font-semibold leading-tight">{a.v}</div>
-                <div className="text-[10.5px] text-[#9ca3af] leading-tight">
-                  {a.k} · <span className={/unanswered|unconfirmed|maintenance/.test(a.note)?"text-[#dc2626]":"text-[#9ca3af]"}>{a.note}</span>
+            {(() => {
+              const OPERATIONAL_KEYS = new Set(["Machines available","Shift pattern","Inbound mode","Bonded status"])
+              const EXTERNAL_KEYS    = new Set(["Weight snapshot","Arrival profile","Wind forecast","Travel matrix"])
+              const operational = assumptions.filter(a => OPERATIONAL_KEYS.has(a.k))
+              const external    = assumptions.filter(a => EXTERNAL_KEYS.has(a.k))
+              const renderGroup = (label: string, items: typeof assumptions) => (
+                <div className="px-4 pb-3">
+                  <div className="text-[9.5px] font-bold tracking-widest text-[#9ca3af] uppercase mb-2"
+                    style={{ borderBottom:"1px solid #f3f4f6", paddingBottom:4 }}>
+                    {label}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {items.map(a => (
+                      <div key={a.k}>
+                        <div className="text-[12px] font-semibold leading-tight">{a.v}</div>
+                        <div className="text-[10.5px] leading-tight mt-0.5">
+                          <span className="text-[#9ca3af]">{a.k} · </span>
+                          <span className={/unanswered|unconfirmed|maintenance/.test(a.note) ? "text-[#dc2626]" : "text-[#9ca3af]"}>{a.note}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+              return (
+                <>
+                  {renderGroup("Operational Controls", operational)}
+                  <div className="h-px bg-[#f3f4f6] mx-4 mb-1" />
+                  {renderGroup("External Inputs", external)}
+                </>
+              )
+            })()}
             <div className="h-px bg-[#e5e7eb] my-1 mx-4" />
             <div className="px-4 pt-3 pb-2 ds-label font-bold">Objective weights</div>
             {WEIGHTS.map(w => (
