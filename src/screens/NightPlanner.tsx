@@ -482,12 +482,6 @@ export default function NightPlanner({ focus, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* ── Plan banner ──────────────────────────────────────────────────────── */}
-      {planSource === "seed" && (
-        <div className="px-5 py-2 bg-[#f9fafb] border-b border-[#e5e7eb] text-[12px] leading-relaxed text-[#374151] flex-none">
-          Plan, filter, and sequence today's {moves.length} moves across 3 reach stackers and 1 empty handler, ranked by free-time urgency, detention cost, hazmat handling, order priority, dig-out cost, gate pressure, customs channel, empty-return windows, damage state and dwell — with every placement carrying a one-sentence reason.
-        </div>
-      )}
 
       {/* ── Vessel schedule (seed mode) ──────────────────────────────────────── */}
       {planSource === "seed" && (
